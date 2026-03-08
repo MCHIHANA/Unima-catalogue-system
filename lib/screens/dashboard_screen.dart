@@ -4,16 +4,37 @@ import '../widgets/stats_card.dart';
 import '../widgets/main_layout.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'manage_books_screen.dart';
+import '../models/book.dart';
+import '../services/book_service.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
   @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  @override
   Widget build(BuildContext context) {
-    return MainLayout(
-      currentRoute: 'Dashboard',
-      child: Column(
-        children: [
+    return StreamBuilder<List<Book>>(
+      stream: BookService().getBooks(),
+      builder: (context, snapshot) {
+        final books = snapshot.data ?? [];
+        
+        int totalSearches = 0;
+        for (var b in books) {
+          totalSearches += b.searchCount;
+        }
+
+        final sorted = List<Book>.from(books)..sort((a, b) => b.searchCount.compareTo(a.searchCount));
+        final topBooks = sorted.take(5).toList();
+        final mostSearched = topBooks.isNotEmpty ? topBooks.first : null;
+
+        return MainLayout(
+          currentRoute: 'Dashboard',
+          child: Column(
+            children: [
           _buildHeader(),
           Expanded(
             child: SingleChildScrollView(
@@ -54,14 +75,14 @@ class DashboardScreen extends StatelessWidget {
                     style: TextStyle(fontSize: 14, color: AppTheme.textGrey),
                   ),
                   const SizedBox(height: 32),
-                  _buildTopStats(),
+                  _buildTopStats(books.length, totalSearches, mostSearched),
                   const SizedBox(height: 32),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(flex: 3, child: _buildTopBooksSection()),
+                      Expanded(flex: 3, child: _buildTopBooksSection(topBooks)),
                       const SizedBox(width: 32),
-                      Expanded(flex: 2, child: _buildSearchTrendsSection()),
+                      Expanded(flex: 2, child: _buildSearchTrendsSection(topBooks)),
                     ],
                   ),
                 ],
@@ -70,6 +91,8 @@ class DashboardScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+      },
     );
   }
 
@@ -127,44 +150,44 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTopStats() {
-    return const Row(
+  Widget _buildTopStats(int totalBooks, int totalSearches, Book? mostSearched) {
+    return Row(
       children: [
         Expanded(
           child: StatsCard(
             title: 'TOTAL BOOKS',
-            value: '12,450',
+            value: '$totalBooks',
             subtitle: 'Total catalogued items in reserve',
-            trend: '↑2.4%',
-            trailingIcon: Icon(Icons.library_books_outlined, size: 40),
+            trend: 'Live',
+            trailingIcon: const Icon(Icons.library_books_outlined, size: 40),
           ),
         ),
-        SizedBox(width: 24),
+        const SizedBox(width: 24),
         Expanded(
           child: StatsCard(
             title: 'TOTAL SEARCHES',
-            value: '85,231',
+            value: '$totalSearches',
             subtitle: 'Student queries this semester',
-            trend: '↑15.8%',
-            trailingIcon: Icon(Icons.search_outlined, size: 40),
+            trend: 'Live',
+            trailingIcon: const Icon(Icons.search_outlined, size: 40),
           ),
         ),
-        SizedBox(width: 24),
+        const SizedBox(width: 24),
         Expanded(
           child: StatsCard(
             title: 'MOST SEARCHED BOOK',
-            value: 'Introduction to Economics',
-            subtitle: 'S. M. Kambala, 2022',
+            value: mostSearched?.title ?? 'None yet',
+            subtitle: mostSearched?.author ?? '',
             hasBorder: true,
-            trailingIcon: Icon(Icons.emoji_events_outlined, size: 40),
-            trend: '3.2k searches',
+            trailingIcon: const Icon(Icons.emoji_events_outlined, size: 40),
+            trend: '${mostSearched?.searchCount ?? 0} searches',
           ),
         ),
       ],
     );
   }
 
-  Widget _buildTopBooksSection() {
+  Widget _buildTopBooksSection(List<Book> topBooks) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -178,7 +201,7 @@ class DashboardScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Top 5 Most Searched Books', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const Text('Top Most Searched Books', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               TextButton(
                 onPressed: () {},
                 child: const Text('Download CSV', style: TextStyle(color: AppTheme.primaryNavy, fontSize: 13)),
@@ -189,11 +212,21 @@ class DashboardScreen extends StatelessWidget {
           const Divider(),
           _buildTableHeader(),
           const Divider(),
-          _buildTableItem(' #1', 'Introduction to Economics', 'S. M. Kambala', '3,241', true),
-          _buildTableItem(' #2', 'Malawi Constitutional Law', 'K. G. Chizumila', '2,890', false),
-          _buildTableItem(' #3', 'Biology for Health Sciences', 'M. W. Gondwe', '2,415', false),
-          _buildTableItem(' #4', 'Political History of Malawi', 'B. J. Phiri', '2,102', false),
-          _buildTableItem(' #5', 'Advanced Microeconomics', 'L. Chiwaya', '1,988', false),
+          if (topBooks.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 32),
+              child: Center(child: Text('No book data available.')),
+            )
+          else
+            ...topBooks.asMap().entries.map((entry) {
+              return _buildTableItem(
+                ' #${entry.key + 1}', 
+                entry.value.title, 
+                entry.value.author, 
+                '${entry.value.searchCount}', 
+                entry.key == 0
+              );
+            }),
         ],
       ),
     );
@@ -233,7 +266,7 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSearchTrendsSection() {
+  Widget _buildSearchTrendsSection(List<Book> topBooks) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -247,32 +280,31 @@ class DashboardScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Search Trends (Top 10)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const Text('Search Trends (Top Books)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               Row(
                 children: [
                   Container(width: 12, height: 12, color: AppTheme.primaryNavy),
                   const SizedBox(width: 4),
-                  const Text('SEARCHES (X100)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                  const Text('SEARCHES', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                 ],
               ),
             ],
           ),
           const SizedBox(height: 24),
-          _buildProgressItem('Economics Intro', 0.9),
-          _buildProgressItem('Constitutional Law', 0.8),
-          _buildProgressItem('Health Bio', 0.7),
-          _buildProgressItem('Malawi History', 0.65),
-          _buildProgressItem('Microeconomics', 0.6),
-          _buildProgressItem('Organic Chemistry', 0.55),
-          _buildProgressItem('Statistics I', 0.5),
-          _buildProgressItem('Database Systems', 0.45),
-          _buildProgressItem('Accounting Prin.', 0.4),
+          if (topBooks.isEmpty)
+             const Center(child: Text('No trend data yet.'))
+          else
+            ...topBooks.map((b) {
+              final maxSearch = topBooks.first.searchCount;
+              final percentage = maxSearch > 0 ? b.searchCount / maxSearch : 0.0;
+              return _buildProgressItem(b.title, percentage, b.searchCount);
+            }),
         ],
       ),
     );
   }
 
-  Widget _buildProgressItem(String label, double value) {
+  Widget _buildProgressItem(String label, double percentage, int rawCount) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Column(
@@ -281,13 +313,14 @@ class DashboardScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.textGrey)),
-              Text((value * 36).toStringAsFixed(1), style: const TextStyle(fontSize: 11, color: AppTheme.textGrey)),
+              Expanded(child: Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.textGrey), maxLines: 1, overflow: TextOverflow.ellipsis)),
+              const SizedBox(width: 8),
+              Text('$rawCount', style: const TextStyle(fontSize: 11, color: AppTheme.textGrey)),
             ],
           ),
           const SizedBox(height: 8),
           LinearProgressIndicator(
-            value: value,
+            value: percentage,
             backgroundColor: Colors.grey[100],
             color: AppTheme.primaryNavy,
             minHeight: 8,

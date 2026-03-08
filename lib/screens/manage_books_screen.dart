@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/book.dart';
 import '../widgets/main_layout.dart';
+import '../services/book_service.dart';
 import 'add_book_screen.dart';
 
 class ManageBooksScreen extends StatefulWidget {
@@ -15,13 +17,17 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
   String _query = '';
 
-  List<Book> _books = [
-    Book(title: 'Introduction to Law and Legal Systems', author: 'Chigawa, M.', isbn: '978-99908-0-1', category: 'LAW', course: 'LAW 110', searchCount: 1245, status: 'PHYSICAL COPY AVAILABLE'),
-    Book(title: 'Macroeconomics: Theory and Policy', author: 'Kandoje, P.', isbn: '978-99908-0-2', category: 'ECONOMICS', course: 'ECO 210', searchCount: 892, status: 'E-RESOURCE AVAILABLE'),
-    Book(title: 'Public Health Nursing Principles', author: 'Manda, A.', isbn: '978-99908-0-3', category: 'MEDICINE', course: 'NUR 305', searchCount: 2120, status: 'SHORT TERM LOAN ONLY'),
-    Book(title: 'Advanced Data Structures', author: 'Phiri, J.', isbn: '978-99908-0-4', category: 'COMPSCI', course: 'CSC 221', searchCount: 674, status: 'NEW ARRIVAL'),
-    Book(title: 'History of Southern Africa', author: 'Chambo, M. C.', isbn: '978-99908-0-5', category: 'HISTORY', course: 'HST 201', searchCount: 541, status: 'PHYSICAL COPY AVAILABLE'),
-  ];
+  final BookService _bookService = BookService();
+  StreamSubscription<List<Book>>? _booksSubscription;
+  List<Book> _books = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _booksSubscription = _bookService.getBooks().listen((books) {
+      if (mounted) setState(() => _books = books);
+    });
+  }
 
   List<Book> get _filtered {
     if (_query.isEmpty) return List.from(_books);
@@ -36,24 +42,22 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
   }
 
   Future<void> _navigateToAdd() async {
-    final result = await Navigator.push<Book>(
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const AddBookScreen()),
     );
-    if (result != null && mounted) {
-      setState(() => _books.add(result));
-      _showSnack('Added: ${result.title}', success: true);
+    if (result == true && mounted) {
+      _showSnack('Book added successfully', success: true);
     }
   }
 
   Future<void> _navigateToEdit(int realIndex) async {
-    final result = await Navigator.push<Book>(
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => AddBookScreen(book: _books[realIndex])),
     );
-    if (result != null && mounted) {
-      setState(() => _books[realIndex] = result);
-      _showSnack('Updated: ${result.title}', success: true);
+    if (result == true && mounted) {
+      _showSnack('Book updated successfully', success: true);
     }
   }
 
@@ -84,11 +88,17 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
             child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
           ElevatedButton.icon(
-            onPressed: () {
-              final name = _books[realIndex].title;
-              setState(() => _books.removeAt(realIndex));
+            onPressed: () async {
+              final book = _books[realIndex];
               Navigator.pop(context);
-              _showSnack('Deleted: $name', success: false);
+              try {
+                if (book.id != null) {
+                  await _bookService.deleteBook(book.id!);
+                  if (mounted) _showSnack('Deleted: ${book.title}', success: true);
+                }
+              } catch (e) {
+                if (mounted) _showSnack('Error deleting book', success: false);
+              }
             },
             icon: const Icon(Icons.delete_forever_rounded, size: 18),
             label: const Text('Delete'),
@@ -118,7 +128,11 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
   }
 
   @override
-  void dispose() { _searchCtrl.dispose(); super.dispose(); }
+  void dispose() { 
+    _searchCtrl.dispose(); 
+    _booksSubscription?.cancel();
+    super.dispose(); 
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/book.dart';
+import '../services/book_service.dart';
 
 class AddBookScreen extends StatefulWidget {
   /// If [book] is provided, the screen operates in Edit mode.
@@ -23,6 +24,8 @@ class _AddBookScreenState extends State<AddBookScreen> {
 
   String _selectedCategory = 'LAW';
   String _selectedStatus = 'PHYSICAL COPY AVAILABLE';
+
+  bool _isLoading = false;
 
   bool get _isEditing => widget.book != null;
 
@@ -65,18 +68,43 @@ class _AddBookScreenState extends State<AddBookScreen> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (_formKey.currentState!.validate()) {
-      final newBook = Book(
-        title:       _titleCtrl.text.trim(),
-        author:      _authorCtrl.text.trim(),
-        isbn:        _isbnCtrl.text.trim(),
-        category:    _selectedCategory,
-        course:      _courseCtrl.text.trim(),
-        searchCount: int.tryParse(_searchCountCtrl.text.trim()) ?? 0,
-        status:      _selectedStatus,
-      );
-      Navigator.pop(context, newBook);
+      setState(() => _isLoading = true);
+
+      try {
+        final newBook = Book(
+          id: widget.book?.id,
+          title:       _titleCtrl.text.trim(),
+          author:      _authorCtrl.text.trim(),
+          isbn:        _isbnCtrl.text.trim(),
+          category:    _selectedCategory,
+          course:      _courseCtrl.text.trim(),
+          searchCount: int.tryParse(_searchCountCtrl.text.trim()) ?? widget.book?.searchCount ?? 0,
+          status:      _selectedStatus,
+        );
+
+        final service = BookService();
+        if (_isEditing) {
+          await service.updateBook(newBook);
+        } else {
+          await service.addBook(newBook);
+        }
+
+        if (mounted) {
+          Navigator.pop(context, true);
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error saving book: $e'), backgroundColor: Colors.red),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
     }
   }
 
@@ -144,8 +172,10 @@ class _AddBookScreenState extends State<AddBookScreen> {
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: ElevatedButton.icon(
-              onPressed: _submit,
-              icon: Icon(_isEditing ? Icons.save_rounded : Icons.add_circle_outline_rounded, size: 18),
+              onPressed: _isLoading ? null : _submit,
+              icon: _isLoading 
+                  ? const SizedBox(height: 14, width: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : Icon(_isEditing ? Icons.save_rounded : Icons.add_circle_outline_rounded, size: 18),
               label: Text(_isEditing ? 'Save Changes' : 'Add Book'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _isEditing ? AppTheme.accentGold : AppTheme.primaryNavy,
@@ -253,8 +283,10 @@ class _AddBookScreenState extends State<AddBookScreen> {
                       ),
                       const SizedBox(width: 12),
                       ElevatedButton.icon(
-                        onPressed: _submit,
-                        icon: Icon(_isEditing ? Icons.save_rounded : Icons.add_circle_outline_rounded, size: 20),
+                        onPressed: _isLoading ? null : _submit,
+                        icon: _isLoading 
+                            ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                            : Icon(_isEditing ? Icons.save_rounded : Icons.add_circle_outline_rounded, size: 20),
                         label: Text(_isEditing ? 'Save Changes' : 'Add Book'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _isEditing ? AppTheme.accentGold : AppTheme.primaryNavy,
