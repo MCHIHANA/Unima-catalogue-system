@@ -33,114 +33,131 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
         return MainLayout(
           currentRoute: 'Dashboard',
-          child: Column(
-            children: [
-          _buildHeader(),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isMobile = constraints.maxWidth < 600;
+              final isTablet = constraints.maxWidth >= 600 && constraints.maxWidth < 900;
+              
+              return Column(
                 children: [
-                  const Text(
-                    'Welcome, Librarian',
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textDark,
+                  _buildHeader(isMobile),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.all(isMobile ? 16 : 32),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Welcome, Librarian',
+                            style: TextStyle(
+                              fontSize: isMobile ? 24 : 32,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.textDark,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                          const SizedBox(height: 12),
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(builder: (context) => const ManageBooksScreen()),
+                              );
+                            },
+                            icon: const Icon(Icons.menu_book_rounded, size: 20),
+                            label: const Text('MANAGE BOOKS'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryNavy,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              elevation: 0,
+                              textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          Text(
+                            'University of Malawi Library Catalogue Reserve System Overview • Academic Session 2023/24',
+                            style: TextStyle(fontSize: isMobile ? 12 : 14, color: AppTheme.textGrey),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 2,
+                          ),
+                          const SizedBox(height: 32),
+                          _buildTopStats(books.length, totalSearches, mostSearched, isMobile),
+                          const SizedBox(height: 32),
+                          if (isMobile || isTablet)
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildTopBooksSection(topBooks),
+                                const SizedBox(height: 32),
+                                _buildSearchTrendsSection(topBooks),
+                              ],
+                            )
+                          else
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(flex: 3, child: _buildTopBooksSection(topBooks)),
+                                const SizedBox(width: 32),
+                                Expanded(flex: 2, child: _buildSearchTrendsSection(topBooks)),
+                              ],
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (context) => const ManageBooksScreen()),
-                      );
-                    },
-                    icon: const Icon(Icons.menu_book_rounded, size: 20),
-                    label: const Text('MANAGE BOOKS'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryNavy,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      elevation: 0,
-                      textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'University of Malawi Library Catalogue Reserve System Overview • Academic Session 2023/24',
-                    style: TextStyle(fontSize: 14, color: AppTheme.textGrey),
-                  ),
-                  const SizedBox(height: 32),
-                  _buildTopStats(books.length, totalSearches, mostSearched),
-                  const SizedBox(height: 32),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(flex: 3, child: _buildTopBooksSection(topBooks)),
-                      const SizedBox(width: 32),
-                      Expanded(flex: 2, child: _buildSearchTrendsSection(topBooks)),
-                    ],
                   ),
                 ],
-              ),
-            ),
+              );
+            },
           ),
-        ],
-      ),
-    );
+        );
       },
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(bool isMobile) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 16),
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 16.0 : 32.0, vertical: 16),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(bottom: BorderSide(color: Color(0xFFF1F3F9))),
       ),
       child: Row(
         children: [
-          const Text(
-            'Librarian Dashboard',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const Spacer(),
-          Container(
-            width: 300,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppTheme.accentGold.withOpacity(0.5)),
+          if (!isMobile)
+            const Text(
+              'Librarian Dashboard',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            child: const TextField(
-              decoration: InputDecoration(
-                hintText: 'Search library resources...',
-                hintStyle: TextStyle(fontSize: 13, color: AppTheme.textGrey),
-                prefixIcon: Icon(Icons.search, size: 20, color: AppTheme.accentGold),
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(vertical: 12),
+          if (!isMobile) const Spacer(),
+          Expanded(
+            flex: isMobile ? 1 : 0,
+            child: Container(
+              width: isMobile ? null : 300,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.accentGold.withOpacity(0.5)),
+              ),
+              child: const TextField(
+                decoration: InputDecoration(
+                  hintText: 'Search library resources...',
+                  hintStyle: TextStyle(fontSize: 13, color: AppTheme.textGrey),
+                  prefixIcon: Icon(Icons.search, size: 20, color: AppTheme.accentGold),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(vertical: 12),
+                ),
               ),
             ),
           ),
-          const SizedBox(width: 24),
+          SizedBox(width: isMobile ? 16 : 24),
           const Icon(Icons.notifications_none, color: AppTheme.textDark),
-          const SizedBox(width: 24),
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('M. Phiri', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-              Text('Chief Librarian', style: TextStyle(color: AppTheme.textGrey, fontSize: 11)),
-            ],
-          ),
-          const SizedBox(width: 12),
+          if (!isMobile) SizedBox(width: 24),
+          SizedBox(width: isMobile ? 8 : 12),
           const CircleAvatar(
             radius: 18,
             backgroundColor: Color(0xFFE0E0E0),
@@ -150,7 +167,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildTopStats(int totalBooks, int totalSearches, Book? mostSearched) {
+  Widget _buildTopStats(int totalBooks, int totalSearches, Book? mostSearched, bool isMobile) {
+    if (isMobile) {
+      return Column(
+        children: [
+          StatsCard(
+            title: 'TOTAL BOOKS',
+            value: '$totalBooks',
+            subtitle: 'Total catalogued items in reserve',
+            trend: 'Live',
+            trailingIcon: const Icon(Icons.library_books_outlined, size: 40),
+          ),
+          const SizedBox(height: 16),
+          StatsCard(
+            title: 'TOTAL SEARCHES',
+            value: '$totalSearches',
+            subtitle: 'Student queries this semester',
+            trend: 'Live',
+            trailingIcon: const Icon(Icons.search_outlined, size: 40),
+          ),
+          const SizedBox(height: 16),
+          StatsCard(
+            title: 'MOST SEARCHED BOOK',
+            value: mostSearched?.title ?? 'None yet',
+            subtitle: mostSearched?.author ?? '',
+            hasBorder: true,
+            trailingIcon: const Icon(Icons.emoji_events_outlined, size: 40),
+            trend: '${mostSearched?.searchCount ?? 0} searches',
+          ),
+        ],
+      );
+    }
     return Row(
       children: [
         Expanded(
@@ -201,7 +248,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Top Most Searched Books', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const Flexible(child: Text('Top Most Searched Books', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
               TextButton(
                 onPressed: () {},
                 child: const Text('Download CSV', style: TextStyle(color: AppTheme.primaryNavy, fontSize: 13)),
@@ -238,9 +285,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Row(
         children: [
           SizedBox(width: 40, child: Text('RANK', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textGrey))),
-          Expanded(flex: 3, child: Text('BOOK TITLE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textGrey))),
-          Expanded(flex: 2, child: Text('AUTHOR', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textGrey))),
-          Text('COUNT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textGrey)),
+          Expanded(flex: 3, child: Text('BOOK TITLE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textGrey), overflow: TextOverflow.ellipsis)),
+          Expanded(flex: 2, child: Text('AUTHOR', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textGrey), overflow: TextOverflow.ellipsis)),
+          SizedBox(width: 60, child: Text('COUNT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textGrey))),
         ],
       ),
     );
@@ -254,13 +301,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
           SizedBox(width: 40, child: Text(rank, style: TextStyle(fontWeight: FontWeight.bold, color: isTop ? AppTheme.accentGold : Colors.grey[300]))),
           Expanded(
             flex: 3,
-            child: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            child: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13), overflow: TextOverflow.ellipsis, maxLines: 2),
           ),
+          const SizedBox(width: 8),
           Expanded(
             flex: 2,
-            child: Text(author, style: const TextStyle(color: AppTheme.textGrey, fontSize: 13)),
+            child: Text(author, style: const TextStyle(color: AppTheme.textGrey, fontSize: 12), overflow: TextOverflow.ellipsis, maxLines: 2),
           ),
-          Text(count, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          const SizedBox(width: 8),
+          SizedBox(width: 60, child: Text(count, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
         ],
       ),
     );
@@ -280,7 +329,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Search Trends (Top Books)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const Flexible(child: Text('Search Trends (Top Books)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
               Row(
                 children: [
                   Container(width: 12, height: 12, color: AppTheme.primaryNavy),

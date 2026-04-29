@@ -47,6 +47,8 @@ class BookItemCard extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                         color: AppTheme.primaryNavy,
                       ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -60,18 +62,22 @@ class BookItemCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryNavy.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  book.category,
-                  style: const TextStyle(
-                    color: AppTheme.primaryNavy,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryNavy.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    book.category,
+                    style: const TextStyle(
+                      color: AppTheme.primaryNavy,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ),
               ),
@@ -80,17 +86,17 @@ class BookItemCard extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              _buildInfoItem(Icons.person_outline, book.author),
+              Expanded(child: _buildInfoItem(Icons.person_outline, book.author)),
               const SizedBox(width: 16),
-              _buildInfoItem(Icons.code, book.course),
+              Expanded(child: _buildInfoItem(Icons.code, book.course)),
             ],
           ),
           const SizedBox(height: 8),
           Row(
             children: [
-              _buildInfoItem(Icons.qr_code, book.isbn),
-              const Spacer(),
-              _buildInfoItem(Icons.search, '${book.searchCount} Searches'),
+              Expanded(child: _buildInfoItem(Icons.qr_code, book.isbn)),
+              const SizedBox(width: 16),
+              Expanded(child: _buildInfoItem(Icons.search, '${book.searchCount} Searches')),
             ],
           ),
           const Divider(height: 24),
@@ -122,9 +128,13 @@ class BookItemCard extends StatelessWidget {
       children: [
         Icon(icon, size: 14, color: Colors.grey),
         const SizedBox(width: 4),
-        Text(
-          text,
-          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
         ),
       ],
     );

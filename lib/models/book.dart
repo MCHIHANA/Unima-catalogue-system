@@ -7,6 +7,8 @@ class Book {
   final String course;
   final int searchCount;
   final String status;
+  final String school;
+  final String department;
 
   Book({
     this.id,
@@ -17,6 +19,8 @@ class Book {
     required this.course,
     this.searchCount = 0,
     required this.status,
+    required this.school,
+    required this.department,
   });
 
   Map<String, dynamic> toMap() {
@@ -28,6 +32,8 @@ class Book {
       'course': course,
       'searchCount': searchCount,
       'status': status,
+      'school': school,
+      'department': department,
     };
   }
 
@@ -41,6 +47,8 @@ class Book {
       course: map['course'] ?? '',
       searchCount: map['searchCount'] ?? 0,
       status: map['status'] ?? '',
+      school: map['school'] ?? 'school-of-education',
+      department: map['department'] ?? '',
     );
   }
 
@@ -53,6 +61,8 @@ class Book {
     String? course,
     int? searchCount,
     String? status,
+    String? school,
+    String? department,
   }) {
     return Book(
       id: id ?? this.id,
@@ -63,6 +73,8 @@ class Book {
       course: course ?? this.course,
       searchCount: searchCount ?? this.searchCount,
       status: status ?? this.status,
+      school: school ?? this.school,
+      department: department ?? this.department,
     );
   }
 }

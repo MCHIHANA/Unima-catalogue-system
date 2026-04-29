@@ -4,6 +4,8 @@ import '../theme/app_theme.dart';
 import '../models/book.dart';
 import '../widgets/main_layout.dart';
 import '../services/book_service.dart';
+import '../utils/sample_books.dart';
+import '../widgets/hierarchical_search_widget.dart';
 import 'add_book_screen.dart';
 
 class ManageBooksScreen extends StatefulWidget {
@@ -16,6 +18,7 @@ class ManageBooksScreen extends StatefulWidget {
 class _ManageBooksScreenState extends State<ManageBooksScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
   String _query = '';
+  List<Book> _hierarchicalFilteredBooks = [];
 
   final BookService _bookService = BookService();
   StreamSubscription<List<Book>>? _booksSubscription;
@@ -30,9 +33,13 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
   }
 
   List<Book> get _filtered {
-    if (_query.isEmpty) return List.from(_books);
+    // Start with hierarchically filtered books
+    List<Book> results = _hierarchicalFilteredBooks.isEmpty ? _books : _hierarchicalFilteredBooks;
+    
+    // Apply additional text search on top
+    if (_query.isEmpty) return List.from(results);
     final q = _query.toLowerCase();
-    return _books.where((b) =>
+    return results.where((b) =>
       b.title.toLowerCase().contains(q) ||
       b.author.toLowerCase().contains(q) ||
       b.isbn.toLowerCase().contains(q) ||
@@ -49,6 +56,26 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
     if (result == true && mounted) {
       _showSnack('Book added successfully', success: true);
     }
+  }
+
+  Future<void> _loadSampleBooks() async {
+    try {
+      final sampleBooks = SampleBooks.getSampleBooks();
+      for (var book in sampleBooks) {
+        await _bookService.addBook(book);
+      }
+      if (mounted) {
+        _showSnack('Successfully added ${sampleBooks.length} sample books!', success: true);
+      }
+    } catch (e) {
+      if (mounted) {
+        _showSnack('Error loading sample books: $e', success: false);
+      }
+    }
+  }
+
+  void _onHierarchicalSearchResults(List<Book> results, bool isActive) {
+    setState(() => _hierarchicalFilteredBooks = results);
   }
 
   Future<void> _navigateToEdit(int realIndex) async {
@@ -152,14 +179,14 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
             // ── Header ────────────────────────────────────────────────
             Row(
               children: [
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Manage Books', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: AppTheme.textDark)),
-                    const SizedBox(height: 4),
-                    Text('University of Malawi — Institutional Repository Console',
-                        style: TextStyle(fontSize: 13, color: AppTheme.textGrey.withValues(alpha: 0.8), fontWeight: FontWeight.w500)),
-                  ]),
-                ),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Text('Manage Books', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: AppTheme.textDark), overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 4),
+                      Text('University of Malawi — Institutional Repository Console',
+                          style: TextStyle(fontSize: 13, color: AppTheme.textGrey.withValues(alpha: 0.8), fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis, maxLines: 2),
+                    ]),
+                  ),
                 if (isDesktop)
                   ElevatedButton.icon(
                     onPressed: _navigateToAdd,
@@ -191,7 +218,14 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
             ],
             const SizedBox(height: 32),
 
-            // ── Search Bar ────────────────────────────────────────────
+            // ── Hierarchical Search ────────────────────────────────
+            HierarchicalSearchWidget(
+              allBooks: _books,
+              onSearchResults: _onHierarchicalSearchResults,
+            ),
+            const SizedBox(height: 20),
+
+            // ── Quick Text Search ───────────────────────────────
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               decoration: BoxDecoration(
@@ -207,7 +241,7 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
                     controller: _searchCtrl,
                     onChanged: (v) => setState(() => _query = v),
                     decoration: const InputDecoration(
-                      hintText: 'Search by title, author, ISBN, course code...',
+                      hintText: 'Quick search within filtered results...',
                       hintStyle: TextStyle(fontSize: 13, color: AppTheme.textGrey),
                       border: InputBorder.none, enabledBorder: InputBorder.none,
                       focusedBorder: InputBorder.none, contentPadding: EdgeInsets.zero, filled: false,
@@ -248,13 +282,16 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
                     color: AppTheme.primaryNavy,
                     borderRadius: BorderRadius.only(topLeft: Radius.circular(14), topRight: Radius.circular(14)),
                   ),
-                  child: _tableRow(
-                    isHeader: true,
-                    title: 'TITLE', author: 'AUTHOR', isbn: 'ISBN',
-                    category: 'CATEGORY', course: 'COURSE', searches: 'SEARCHES', actions: 'ACTIONS',
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: _tableRow(
+                      isHeader: true,
+                      title: 'TITLE', author: 'AUTHOR', isbn: 'ISBN',
+                      category: 'CATEGORY', course: 'COURSE', searches: 'SEARCHES', actions: 'ACTIONS',
+                    ),
                   ),
                 ),
-                // Rows
+                // Rows - Make scrollable
                 if (filtered.isEmpty)
                   const Padding(
                     padding: EdgeInsets.all(48),
@@ -266,11 +303,15 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
                     ]),
                   )
                 else
-                  ...filtered.asMap().entries.map((e) {
-                    // find real index in _books for edit/delete
-                    final realIndex = _books.indexOf(e.value);
-                    return _buildBookRow(e.value, realIndex);
-                  }),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Column(
+                      children: filtered.asMap().entries.map((e) {
+                        final realIndex = _books.indexOf(e.value);
+                        return _buildBookRow(e.value, realIndex);
+                      }).toList(),
+                    ),
+                  ),
                 // Pagination footer
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -347,13 +388,13 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Row(children: [
-        SizedBox(width: 180, child: Text(title, style: style)),
-        SizedBox(width: 130, child: Text(author, style: style)),
-        SizedBox(width: 130, child: Text(isbn, style: style)),
-        SizedBox(width: 90, child: Text(category, style: style, textAlign: TextAlign.center)),
-        SizedBox(width: 80, child: Text(course, style: style)),
+        SizedBox(width: 180, child: Text(title, style: style, overflow: TextOverflow.ellipsis)),
+        SizedBox(width: 130, child: Text(author, style: style, overflow: TextOverflow.ellipsis)),
+        SizedBox(width: 130, child: Text(isbn, style: style, overflow: TextOverflow.ellipsis)),
+        SizedBox(width: 90, child: Text(category, style: style, textAlign: TextAlign.center, overflow: TextOverflow.ellipsis)),
+        SizedBox(width: 80, child: Text(course, style: style, overflow: TextOverflow.ellipsis)),
         SizedBox(width: 80, child: Text(searches, style: style, textAlign: TextAlign.center)),
-        SizedBox(width: 160, child: Text(actions, style: style, textAlign: TextAlign.right)),
+        SizedBox(width: 160, child: Text(actions, style: style, textAlign: TextAlign.right, overflow: TextOverflow.ellipsis)),
       ]),
     );
   }
@@ -369,20 +410,20 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(book.title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppTheme.primaryNavy), maxLines: 2, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 3),
-              Text(book.status, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFF9CA3AF), letterSpacing: 0.3), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(book.status, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFF9CA3AF), letterSpacing: 0.3), maxLines: 2, overflow: TextOverflow.ellipsis),
             ]),
           ),
           SizedBox(width: 130, child: Text(book.author, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textGrey), maxLines: 2, overflow: TextOverflow.ellipsis)),
-          SizedBox(width: 130, child: Text(book.isbn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF9CA3AF)))),
+          SizedBox(width: 130, child: Text(book.isbn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF9CA3AF)), overflow: TextOverflow.ellipsis)),
           SizedBox(
             width: 90,
             child: Center(child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
               decoration: BoxDecoration(color: AppTheme.primaryNavy.withValues(alpha: 0.07), borderRadius: BorderRadius.circular(4)),
-              child: Text(book.category, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: AppTheme.primaryNavy), textAlign: TextAlign.center),
+              child: Text(book.category, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: AppTheme.primaryNavy), textAlign: TextAlign.center, overflow: TextOverflow.ellipsis),
             )),
           ),
-          SizedBox(width: 80, child: Text(book.course, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.textDark))),
+          SizedBox(width: 80, child: Text(book.course, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.textDark), overflow: TextOverflow.ellipsis)),
           SizedBox(width: 80, child: Text('${book.searchCount}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: AppTheme.textDark))),
           SizedBox(
             width: 160,

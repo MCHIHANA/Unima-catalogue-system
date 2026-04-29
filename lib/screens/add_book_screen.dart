@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/book.dart';
 import '../services/book_service.dart';
+import '../utils/schools_and_departments.dart';
 
 class AddBookScreen extends StatefulWidget {
   /// If [book] is provided, the screen operates in Edit mode.
@@ -24,6 +25,8 @@ class _AddBookScreenState extends State<AddBookScreen> {
 
   String _selectedCategory = 'LAW';
   String _selectedStatus = 'PHYSICAL COPY AVAILABLE';
+  String _selectedSchool = 'school-of-natural-and-applied-sciences';
+  String _selectedDepartment = 'Department of Computer Science';
 
   bool _isLoading = false;
 
@@ -55,6 +58,15 @@ class _AddBookScreenState extends State<AddBookScreen> {
     if (b != null) {
       _selectedCategory = b.category;
       _selectedStatus   = b.status;
+      // Ensure school is valid, fallback to first available
+      _selectedSchool = SchoolsAndDepartments.getSchools().contains(b.school) 
+          ? b.school 
+          : SchoolsAndDepartments.getSchools().first;
+      // Ensure department is valid for the selected school, fallback to first department
+      final validDepartments = SchoolsAndDepartments.getDepartments(_selectedSchool);
+      _selectedDepartment = validDepartments.contains(b.department) 
+          ? b.department 
+          : validDepartments.first;
     }
   }
 
@@ -82,6 +94,8 @@ class _AddBookScreenState extends State<AddBookScreen> {
           course:      _courseCtrl.text.trim(),
           searchCount: int.tryParse(_searchCountCtrl.text.trim()) ?? widget.book?.searchCount ?? 0,
           status:      _selectedStatus,
+          school:      _selectedSchool,
+          department:  _selectedDepartment,
         );
 
         final service = BookService();
@@ -151,6 +165,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
                     fontWeight: FontWeight.w900,
                     color: AppTheme.textDark,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   'University of Malawi Institutional Repository',
@@ -159,6 +174,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
                     color: AppTheme.textGrey,
                     fontWeight: FontWeight.w500,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -246,7 +262,38 @@ class _AddBookScreenState extends State<AddBookScreen> {
 
                   const SizedBox(height: 36),
 
-                  // ── Section 2: Classification ───────────────────────────
+                  // ── Section 2: School & Department ──────────────────────
+                  _sectionHeader('School & Department', Icons.domain_rounded),
+                  const SizedBox(height: 28),
+
+                  if (isDesktop)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: _dropdown('School *', SchoolsAndDepartments.getSchools(), _selectedSchool, (v) {
+                          setState(() {
+                            _selectedSchool = v!;
+                            _selectedDepartment = SchoolsAndDepartments.getDepartments(v).first;
+                          });
+                        }, formatLabel: true)),
+                        const SizedBox(width: 20),
+                        Expanded(child: _dropdown('Department *', SchoolsAndDepartments.getDepartments(_selectedSchool), _selectedDepartment, (v) => setState(() => _selectedDepartment = v!))),
+                      ],
+                    )
+                  else ...[
+                    _dropdown('School *', SchoolsAndDepartments.getSchools(), _selectedSchool, (v) {
+                      setState(() {
+                        _selectedSchool = v!;
+                        _selectedDepartment = SchoolsAndDepartments.getDepartments(v).first;
+                      });
+                    }, formatLabel: true),
+                    const SizedBox(height: 20),
+                    _dropdown('Department *', SchoolsAndDepartments.getDepartments(_selectedSchool), _selectedDepartment, (v) => setState(() => _selectedDepartment = v!)),
+                  ],
+
+                  const SizedBox(height: 36),
+
+                  // ── Section 3: Classification ───────────────────────────
                   _sectionHeader('Classification & Status', Icons.label_rounded),
                   const SizedBox(height: 28),
 
@@ -360,7 +407,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
     );
   }
 
-  Widget _dropdown(String label, List<String> items, String value, ValueChanged<String?> onChanged) {
+  Widget _dropdown(String label, List<String> items, String value, ValueChanged<String?> onChanged, {bool formatLabel = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -382,7 +429,10 @@ class _AddBookScreenState extends State<AddBookScreen> {
             enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
             focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.primaryNavy, width: 2)),
           ),
-          items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, overflow: TextOverflow.ellipsis))).toList(),
+          items: items.map((e) {
+            final displayText = formatLabel ? SchoolsAndDepartments.formatSchoolName(e) : e;
+            return DropdownMenuItem(value: e, child: Text(displayText, overflow: TextOverflow.ellipsis, maxLines: 1));
+          }).toList(),
           validator: (v) => v == null ? 'Please select an option' : null,
         ),
       ],

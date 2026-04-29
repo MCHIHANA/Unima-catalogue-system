@@ -93,6 +93,7 @@ class _MainLayoutState extends State<MainLayout> {
                   color: AppTheme.primaryNavy,
                   letterSpacing: 0.5,
                 ),
+                overflow: TextOverflow.ellipsis,
               ),
               Text(
                 'RESERVE SYSTEM',
@@ -102,6 +103,7 @@ class _MainLayoutState extends State<MainLayout> {
                   color: AppTheme.accentGold,
                   letterSpacing: 1,
                 ),
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
@@ -144,10 +146,12 @@ class _MainLayoutState extends State<MainLayout> {
                   Text(
                     'Administrator',
                     style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AppTheme.textDark),
+                    overflow: TextOverflow.ellipsis,
                   ),
                   Text(
                     'Library Services',
                     style: TextStyle(fontSize: 11, color: AppTheme.textGrey, fontWeight: FontWeight.w500),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
@@ -178,6 +182,7 @@ class _MainLayoutState extends State<MainLayout> {
                   fontWeight: isActive ? FontWeight.w900 : FontWeight.w600,
                   fontSize: 14,
                 ),
+                overflow: TextOverflow.ellipsis,
               ),
               if (isActive) ...[
                 const SizedBox(height: 4),
@@ -205,6 +210,7 @@ class _MainLayoutState extends State<MainLayout> {
                   child: Text(
                     'UNIMA LIBRARY',
                     style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
