@@ -1,9 +1,339 @@
+import 'dart:io';
+
+import 'package:excel/excel.dart' as excelpkg;
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+
+import '../models/book.dart';
+import '../models/search_request.dart';
+import '../services/book_service.dart';
+import '../services/report_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/main_layout.dart';
 
-class AnalyticsScreen extends StatelessWidget {
+class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
+
+  @override
+  State<AnalyticsScreen> createState() => _AnalyticsScreenState();
+}
+
+class _AnalyticsScreenState extends State<AnalyticsScreen> {
+  final BookService _bookService = BookService();
+  final ReportService _reportService = ReportService();
+  final TextEditingController _recommendationController = TextEditingController();
+
+  List<Book> _books = [];
+  List<SearchRequest> _requests = [];
+  String? _latestRecommendation;
+  bool _isExporting = false;
+  DateTime _selectedMonth = DateTime.now();
+  int _rankDepth = 10;
+  bool _isSavingRecommendation = false;
+
+  @override
+  void dispose() {
+    _recommendationController.dispose();
+    super.dispose();
+  }
+
+  String get _todayLabel => DateFormat.yMMMMEEEEd().format(DateTime.now());
+
+  String get _reportGeneratedLabel => DateFormat.yMMMMd().add_jm().format(DateTime.now());
+
+  void _changeMonth(int delta) {
+    setState(() {
+      _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month + delta, 1);
+    });
+  }
+
+  Future<void> _saveRecommendation() async {
+    final text = _recommendationController.text.trim();
+    if (text.isEmpty) {
+      _showSnack('Please enter a recommendation before saving.');
+      return;
+    }
+
+    setState(() {
+      _isSavingRecommendation = true;
+    });
+
+    try {
+      await _reportService.saveRecommendation(text);
+      _recommendationController.clear();
+      _showSnack('Recommendation saved.');
+    } catch (error) {
+      _showSnack('Unable to save recommendation. Try again.');
+    } finally {
+      setState(() {
+        _isSavingRecommendation = false;
+      });
+    }
+  }
+
+  Future<void> _exportExcel(List<Book> books, List<SearchRequest> requests, String? recommendation) async {
+    setState(() {
+      _isExporting = true;
+    });
+
+    try {
+      final excel = excelpkg.Excel.createExcel();
+      final sheet = excel['Reports'];
+      sheet.appendRow(['UNIMA Library Search Report']);
+      sheet.appendRow(['Generated', _reportGeneratedLabel]);
+      sheet.appendRow([]);
+      sheet.appendRow(['Top Searched Books']);
+      sheet.appendRow(['Rank', 'Title', 'Author', 'Category', 'Status', 'Search Count']);
+
+      final topBooks = List<Book>.from(books)
+        ..sort((a, b) => b.searchCount.compareTo(a.searchCount));
+      for (var i = 0; i < topBooks.length && i < _rankDepth; i++) {
+        final book = topBooks[i];
+        sheet.appendRow([i + 1, book.title, book.author, book.category, book.status, book.searchCount]);
+      }
+
+      sheet.appendRow([]);
+      sheet.appendRow(['Most Needed Books']);
+      sheet.appendRow(['Title', 'Author', 'Search Count', 'Status']);
+      final needed = topBooks.where((book) => book.status.toLowerCase() != 'available').take(10).toList();
+      if (needed.isEmpty) {
+        sheet.appendRow(['No unavailable books currently flagged']);
+      } else {
+        for (final book in needed) {
+          sheet.appendRow([book.title, book.author, book.searchCount, book.status]);
+        }
+      }
+
+      sheet.appendRow([]);
+      sheet.appendRow(['Unavailable Search Queries']);
+      sheet.appendRow(['Query', 'Count', 'Last Searched']);
+      final unavailableRequests = requests.where((request) => !request.found).toList();
+      if (unavailableRequests.isEmpty) {
+        sheet.appendRow(['No unavailable search requests found']);
+      } else {
+        for (final request in unavailableRequests) {
+          sheet.appendRow([request.query, request.count, DateFormat.yMd().add_jm().format(request.lastSearched)]);
+        }
+      }
+
+      if (recommendation != null && recommendation.isNotEmpty) {
+        sheet.appendRow([]);
+        sheet.appendRow(['Admin Recommendation']);
+        sheet.appendRow([recommendation]);
+      }
+
+      final bytes = excel.encode();
+      if (bytes == null) throw Exception('Failed to encode Excel workbook.');
+
+      final resultPath = await _writeBinaryFile('unima_library_report_${DateTime.now().millisecondsSinceEpoch}.xlsx', bytes);
+      _showSnack('Excel report exported to: $resultPath');
+    } catch (error) {
+      _showSnack('Report export failed: ${error.toString()}');
+    } finally {
+      setState(() {
+        _isExporting = false;
+      });
+    }
+  }
+
+  Future<void> _exportWord(List<Book> books, List<SearchRequest> requests, String? recommendation) async {
+    setState(() {
+      _isExporting = true;
+    });
+
+    try {
+      final buffer = StringBuffer();
+      buffer.writeln('<html><body>');
+      buffer.writeln('<h1>UNIMA Library Search Report</h1>');
+      buffer.writeln('<p><strong>Generated:</strong> $_reportGeneratedLabel</p>');
+      buffer.writeln('<h2>Top Searched Books</h2>');
+      buffer.writeln('<table border="1" cellpadding="6" cellspacing="0">');
+      buffer.writeln('<tr><th>Rank</th><th>Title</th><th>Author</th><th>Category</th><th>Status</th><th>Search Count</th></tr>');
+      final topBooks = List<Book>.from(books)
+        ..sort((a, b) => b.searchCount.compareTo(a.searchCount));
+      for (var i = 0; i < topBooks.length && i < _rankDepth; i++) {
+        final book = topBooks[i];
+        buffer.writeln('<tr><td>${i + 1}</td><td>${book.title}</td><td>${book.author}</td><td>${book.category}</td><td>${book.status}</td><td>${book.searchCount}</td></tr>');
+      }
+      buffer.writeln('</table>');
+
+      buffer.writeln('<h2>Most Needed Books</h2>');
+      final needed = topBooks.where((book) => book.status.toLowerCase() != 'available').take(10).toList();
+      if (needed.isEmpty) {
+        buffer.writeln('<p>No unavailable books currently flagged.</p>');
+      } else {
+        buffer.writeln('<ul>');
+        for (final book in needed) {
+          buffer.writeln('<li><strong>${book.title}</strong> by ${book.author} — ${book.searchCount} searches (${book.status})</li>');
+        }
+        buffer.writeln('</ul>');
+      }
+
+      buffer.writeln('<h2>Unavailable Search Queries</h2>');
+      final unavailableRequests = requests.where((request) => !request.found).toList();
+      if (unavailableRequests.isEmpty) {
+        buffer.writeln('<p>No unavailable search requests found.</p>');
+      } else {
+        buffer.writeln('<ul>');
+        for (final request in unavailableRequests) {
+          buffer.writeln('<li>${request.query} — ${request.count} times (last: ${DateFormat.yMd().add_jm().format(request.lastSearched)})</li>');
+        }
+        buffer.writeln('</ul>');
+      }
+
+      if (recommendation != null && recommendation.isNotEmpty) {
+        buffer.writeln('<h2>Admin Recommendation</h2>');
+        buffer.writeln('<p>${recommendation.replaceAll('\n', '<br/>')}</p>');
+      }
+
+      buffer.writeln('</body></html>');
+      final resultPath = await _writeTextFile('unima_library_report_${DateTime.now().millisecondsSinceEpoch}.doc', buffer.toString());
+      _showSnack('Word report exported to: $resultPath');
+    } catch (error) {
+      _showSnack('Report export failed: ${error.toString()}');
+    } finally {
+      setState(() {
+        _isExporting = false;
+      });
+    }
+  }
+
+  Future<void> _exportPDF(List<Book> books, List<SearchRequest> requests, String? recommendation) async {
+    setState(() {
+      _isExporting = true;
+    });
+
+    try {
+      final pdf = pw.Document();
+
+      final topBooks = List<Book>.from(books)
+        ..sort((a, b) => b.searchCount.compareTo(a.searchCount));
+      final needed = topBooks.where((book) => book.status.toLowerCase() != 'available').take(10).toList();
+      final unavailableRequests = requests.where((request) => !request.found).toList();
+
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          build: (pw.Context context) => [
+            pw.Header(
+              level: 0,
+              child: pw.Text('UNIMA Library Search Report',
+                  style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+            ),
+            pw.Paragraph(text: 'Generated: $_reportGeneratedLabel'),
+            pw.SizedBox(height: 20),
+
+            // Top Searched Books
+            pw.Header(level: 1, child: pw.Text('Top Searched Books')),
+            pw.TableHelper.fromTextArray(
+              headers: ['Rank', 'Title', 'Author', 'Category', 'Status', 'Search Count'],
+              data: [
+                for (var i = 0; i < topBooks.length && i < _rankDepth; i++)
+                  [
+                    (i + 1).toString(),
+                    topBooks[i].title,
+                    topBooks[i].author,
+                    topBooks[i].category,
+                    topBooks[i].status,
+                    topBooks[i].searchCount.toString(),
+                  ]
+              ],
+            ),
+            pw.SizedBox(height: 20),
+
+            // Most Needed Books
+            pw.Header(level: 1, child: pw.Text('Most Needed Books')),
+            if (needed.isEmpty)
+              pw.Paragraph(text: 'No unavailable books currently flagged')
+            else
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  for (final book in needed)
+                    pw.Bullet(
+                      text: '${book.title} by ${book.author} — ${book.searchCount} searches (${book.status})',
+                    )
+                ],
+              ),
+            pw.SizedBox(height: 20),
+
+            // Unavailable Search Queries
+            pw.Header(level: 1, child: pw.Text('Unavailable Search Queries')),
+            if (unavailableRequests.isEmpty)
+              pw.Paragraph(text: 'No unavailable search requests found')
+            else
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  for (final request in unavailableRequests)
+                    pw.Bullet(
+                      text: '${request.query} — ${request.count} times (last: ${DateFormat.yMd().add_jm().format(request.lastSearched)})',
+                    )
+                ],
+              ),
+
+            // Admin Recommendation
+            if (recommendation != null && recommendation.isNotEmpty) ...[
+              pw.SizedBox(height: 20),
+              pw.Header(level: 1, child: pw.Text('Admin Recommendation')),
+              pw.Paragraph(text: recommendation),
+            ],
+          ],
+        ),
+      );
+
+      final bytes = await pdf.save();
+      final resultPath = await _writeBinaryFile('unima_library_report_${DateTime.now().millisecondsSinceEpoch}.pdf', bytes);
+      _showSnack('PDF report exported to: $resultPath');
+    } catch (error) {
+      _showSnack('Report export failed: ${error.toString()}');
+    } finally {
+      setState(() {
+        _isExporting = false;
+      });
+    }
+  }
+
+  Future<String> _writeBinaryFile(String fileName, List<int> bytes) async {
+    final downloadsPath = '${Platform.environment['USERPROFILE']}\\Downloads';
+    final downloadsDir = Directory(downloadsPath);
+    
+    // Ensure downloads directory exists
+    if (!await downloadsDir.exists()) {
+      await downloadsDir.create(recursive: true);
+    }
+    
+    final path = '$downloadsPath\\$fileName';
+    final file = File(path);
+    await file.writeAsBytes(bytes, flush: true);
+    return path;
+  }
+
+  Future<String> _writeTextFile(String fileName, String content) async {
+    final downloadsPath = '${Platform.environment['USERPROFILE']}\\Downloads';
+    final downloadsDir = Directory(downloadsPath);
+    
+    // Ensure downloads directory exists
+    if (!await downloadsDir.exists()) {
+      await downloadsDir.create(recursive: true);
+    }
+    
+    final path = '$downloadsPath\\$fileName';
+    final file = File(path);
+    await file.writeAsString(content, flush: true);
+    return path;
+  }
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,37 +355,73 @@ class AnalyticsScreen extends StatelessWidget {
                 children: [
                   _buildPageHeader(context, isDesktop),
                   const SizedBox(height: 40),
-                  if (isDesktop)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 1,
-                          child: Column(
-                            children: [
-                              _buildReportParameters(),
-                              const SizedBox(height: 32),
-                              _buildQuickSummary(),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 40),
-                        Expanded(
-                          flex: 2,
-                          child: _buildRankingTable(),
-                        ),
-                      ],
-                    )
-                  else
-                    Column(
-                      children: [
-                        _buildReportParameters(),
-                        const SizedBox(height: 32),
-                        _buildQuickSummary(),
-                        const SizedBox(height: 32),
-                        _buildRankingTable(),
-                      ],
-                    ),
+                  StreamBuilder<List<Book>>(
+                    stream: _bookService.getBooks(),
+                    builder: (context, bookSnapshot) {
+                      if (!bookSnapshot.hasData) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+
+                      final books = bookSnapshot.data!;
+                      _books = books; // Update instance variable
+                      return StreamBuilder<List<SearchRequest>>(
+                        stream: _reportService.getSearchRequests(),
+                        builder: (context, requestSnapshot) {
+                          final requests = requestSnapshot.data ?? [];
+                          _requests = requests; // Update instance variable
+                          return StreamBuilder<String?>(
+                            stream: _reportService.getLatestRecommendation(),
+                            builder: (context, recSnapshot) {
+                              final latestRecommendation = recSnapshot.data;
+                              _latestRecommendation = latestRecommendation; // Update instance variable
+                              return isDesktop
+                                  ? Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(
+                                          flex: 1,
+                                          child: Column(
+                                            children: [
+                                              _buildReportParameters(books, requests),
+                                              const SizedBox(height: 32),
+                                              _buildQuickSummary(books, requests),
+                                              const SizedBox(height: 32),
+                                              _buildRecommendationCard(),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 40),
+                                        Expanded(
+                                          flex: 2,
+                                          child: Column(
+                                            children: [
+                                              _buildRankingTable(books, requests, latestRecommendation),
+                                              const SizedBox(height: 32),
+                                              _buildUnavailableSearchTable(requests),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : Column(
+                                      children: [
+                                        _buildReportParameters(books, requests),
+                                        const SizedBox(height: 32),
+                                        _buildQuickSummary(books, requests),
+                                        const SizedBox(height: 32),
+                                        _buildRecommendationCard(),
+                                        const SizedBox(height: 32),
+                                        _buildRankingTable(books, requests, latestRecommendation),
+                                        const SizedBox(height: 32),
+                                        _buildUnavailableSearchTable(requests),
+                                      ],
+                                    );
+                            },
+                          );
+                        },
+                      );
+                    },
+                  ),
                   const SizedBox(height: 60),
                   _buildFooter(),
                 ],
@@ -84,7 +450,7 @@ class AnalyticsScreen extends StatelessWidget {
                   Icon(Icons.bar_chart_rounded, size: 14, color: AppTheme.accentGold),
                   SizedBox(width: 6),
                   Text(
-                    'ANALYTICS & STATISTICS',
+                    'ANALYTICS & REPORTS',
                     style: TextStyle(
                       color: AppTheme.accentGold,
                       fontSize: 10,
@@ -101,12 +467,12 @@ class AnalyticsScreen extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Most Frequently Searched Books',
+                  const Text(
+                    'Library Search & Availability Reports',
                     style: TextStyle(
                       fontSize: 36,
                       fontWeight: FontWeight.w900,
@@ -116,16 +482,14 @@ class AnalyticsScreen extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     maxLines: 2,
                   ),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   Text(
-                    'Academic Session: 2023/2024 • University of Malawi Main Library',
-                    style: TextStyle(
+                    'Current date: $_todayLabel',
+                    style: const TextStyle(
                       fontSize: 14,
                       color: AppTheme.textGrey,
                       fontWeight: FontWeight.w500,
                     ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 2,
                   ),
                 ],
               ),
@@ -133,9 +497,11 @@ class AnalyticsScreen extends StatelessWidget {
             if (isDesktop)
               Row(
                 children: [
-                  _buildExportButton('CSV Export', Icons.file_download_outlined, false),
+                  _buildButton('Export Excel', Icons.grid_view_outlined, false, () => _exportExcel(_books, _requests, _latestRecommendation)),
                   const SizedBox(width: 16),
-                  _buildExportButton('PDF Report', Icons.picture_as_pdf_outlined, true),
+                  _buildButton('Export Word', Icons.description_outlined, true, () => _exportWord(_books, _requests, _latestRecommendation)),
+                  const SizedBox(width: 16),
+                  _buildButton('Export PDF', Icons.picture_as_pdf_outlined, false, () => _exportPDF(_books, _requests, _latestRecommendation)),
                 ],
               ),
           ],
@@ -144,146 +510,39 @@ class AnalyticsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildExportButton(String label, IconData icon, bool isPrimary) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      decoration: BoxDecoration(
-        color: isPrimary ? AppTheme.primaryNavy : Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: isPrimary ? null : Border.all(color: const Color(0xFFE0E0E0)),
-        boxShadow: isPrimary
-            ? [
-                BoxShadow(
-                  color: AppTheme.primaryNavy.withOpacity(0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                )
-              ]
-            : null,
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: isPrimary ? Colors.white : AppTheme.textDark),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: TextStyle(
-              color: isPrimary ? Colors.white : AppTheme.textDark,
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildReportParameters() {
-    return Container(
-      padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.filter_list_rounded, size: 20, color: AppTheme.primaryNavy),
-              SizedBox(width: 12),
-              Text(
-                'Report Parameters',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
-              ),
-            ],
-          ),
-          const SizedBox(height: 32),
-          _buildFieldLabel('ANALYSIS PERIOD'),
-          const SizedBox(height: 16),
-          // Simplified Calendar UI
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFFF1F3F9)),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Icon(Icons.chevron_left_rounded, color: Colors.grey, size: 20),
-                    const Text('September 2023', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                    const Icon(Icons.chevron_right_rounded, color: Colors.grey, size: 20),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                // Calendar Days Grid placeholder
-                GridView.count(
-                  shrinkWrap: true,
-                  crossAxisCount: 7,
-                  mainAxisSpacing: 8,
-                  crossAxisSpacing: 8,
-                  childAspectRatio: 1,
-                  physics: const NeverScrollableScrollPhysics(),
-                  children: List.generate(35, (index) {
-                    bool isSelected = index >= 14 && index <= 19;
-                    return Container(
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: isSelected ? AppTheme.primaryNavy : Colors.transparent,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        '${(index % 31) + 1}',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                          color: isSelected ? Colors.white : AppTheme.textGrey,
-                        ),
-                      ),
-                    );
-                  }),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 32),
-          _buildFieldLabel('RANKING DEPTH'),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              _buildFilterChip('Top 5', false),
-              _buildFilterChip('Top 10', true),
-              _buildFilterChip('Top 25', false),
-            ],
-          ),
-          const SizedBox(height: 32),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {},
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.accentGold,
-                padding: const EdgeInsets.symmetric(vertical: 20),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                elevation: 0,
-              ),
-              child: const Text(
-                'Apply Filters',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, letterSpacing: 0.5),
+  Widget _buildButton(String label, IconData icon, bool primary, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        decoration: BoxDecoration(
+          color: primary ? AppTheme.primaryNavy : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: primary ? null : Border.all(color: const Color(0xFFE0E0E0)),
+          boxShadow: primary
+              ? [
+                  BoxShadow(
+                    color: AppTheme.primaryNavy.withOpacity(0.2),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  )
+                ]
+              : null,
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: primary ? Colors.white : AppTheme.textDark),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: primary ? Colors.white : AppTheme.textDark,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -297,231 +556,6 @@ class AnalyticsScreen extends StatelessWidget {
         color: AppTheme.textGrey,
         letterSpacing: 1.2,
       ),
-    );
-  }
-
-  Widget _buildFilterChip(String label, bool selected) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: selected ? Colors.white : const Color(0xFFF8F9FA),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: selected ? AppTheme.accentGold : const Color(0xFFF1F3F9)),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: AppTheme.accentGold.withOpacity(0.15),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  )
-                ]
-              : null,
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-            color: selected ? AppTheme.accentGold : AppTheme.textGrey,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickSummary() {
-    return Container(
-      padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(
-        color: AppTheme.primaryNavy,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryNavy.withOpacity(0.3),
-            blurRadius: 30,
-            offset: const Offset(0, 15),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppTheme.accentGold,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: const Text(
-              'QUICK SUMMARY',
-              style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.5),
-            ),
-          ),
-          const SizedBox(height: 32),
-          const Text('Total Library Searches', style: TextStyle(color: Colors.white60, fontSize: 13, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis),
-          const SizedBox(height: 4),
-          const Text('14,208', style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 24),
-          const Divider(color: Colors.white12),
-          const SizedBox(height: 24),
-          const Text('Most Searched Category', style: TextStyle(color: Colors.white60, fontSize: 13, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis),
-          const SizedBox(height: 8),
-          const Text('Legal Studies', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800), overflow: TextOverflow.ellipsis),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRankingTable() {
-    return Container(
-      padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Flexible(child: Text('Generated Ranking Table', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18), overflow: TextOverflow.ellipsis)),
-              const Flexible(child: Text('Showing data from Sept 5 - Sept 20, 2023', style: TextStyle(color: AppTheme.textGrey, fontSize: 12, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
-            ],
-          ),
-          const SizedBox(height: 32),
-          // Table Header
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            decoration: const BoxDecoration(
-              color: AppTheme.primaryNavy,
-              borderRadius: BorderRadius.only(topLeft: Radius.circular(8), topRight: Radius.circular(8)),
-            ),
-            child: const Row(
-              children: [
-                SizedBox(width: 50, child: Text('RANK', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900), overflow: TextOverflow.ellipsis)),
-                Expanded(flex: 2, child: Text('BOOK TITLE', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900), overflow: TextOverflow.ellipsis)),
-                Expanded(flex: 1, child: Text('AUTHOR', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900), overflow: TextOverflow.ellipsis)),
-                SizedBox(width: 100, child: Text('SEARCH COUNT', textAlign: TextAlign.right, style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900), overflow: TextOverflow.ellipsis)),
-              ],
-            ),
-          ),
-          _buildRankingItem('1', 'Introduction to Malawian Law', 'Dr. Chimwemwe Phiri', '1,240'),
-          _buildRankingItem('2', 'Principles of Economics for Africa', 'Prof. J. Gondwe', '1,012'),
-          _buildRankingItem('3', 'Public Health in Developing Nations', 'S. M. Bandah', '895'),
-          _buildRankingItem('4', 'Structural Engineering Fundamentals', 'Dr. Kenneth Kaunda', '762'),
-          _buildRankingItem('5', 'History of Southern Africa', 'M. C. Chambo', '644'),
-          _buildRankingItem('6', 'Biology: An African Perspective', 'Prof. Rose Mumba', '531'),
-          _buildRankingItem('7', 'Database Systems Design', 'B. T. Kumwenda', '498'),
-          _buildRankingItem('8', 'Psychology of Learning', 'Dr. Alice Nkhoma', '422'),
-          _buildRankingItem('9', 'Chichewa Grammar and Syntax', 'L. S. Chimombo', '388'),
-          _buildRankingItem('10', 'Business Mathematics', 'T. K. Tembo', '315'),
-          const SizedBox(height: 32),
-          // Pagination Row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Report generated on: October 24, 2026 - 14:45 CAT', style: TextStyle(color: AppTheme.textGrey.withOpacity(0.6), fontSize: 11)),
-              Row(
-                children: [
-                  const Text('Items per page: 10', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-                  const SizedBox(width: 20),
-                  _buildPageAction(Icons.chevron_left_rounded, false),
-                  _buildPageNumber('1', true),
-                  _buildPageNumber('2', false),
-                  _buildPageAction(Icons.chevron_right_rounded, true),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRankingItem(String rank, String title, String author, String count) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFFF1F3F9))),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 50,
-            child: Container(
-              width: 32,
-              height: 32,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: AppTheme.accentGold.withOpacity(0.08),
-                shape: BoxShape.circle,
-              ),
-              child: Text(rank, style: const TextStyle(color: AppTheme.accentGold, fontWeight: FontWeight.w900, fontSize: 13)),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AppTheme.textDark), overflow: TextOverflow.ellipsis, maxLines: 2),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            flex: 1,
-            child: Text(author, style: const TextStyle(color: AppTheme.textGrey, fontSize: 13, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis, maxLines: 2),
-          ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 100,
-            child: Text(count, textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: AppTheme.primaryNavy)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPageNumber(String label, bool active) {
-    return Container(
-      width: 28,
-      height: 28,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: active ? AppTheme.primaryNavy : Colors.transparent,
-        borderRadius: BorderRadius.circular(4),
-        border: active ? null : Border.all(color: const Color(0xFFE0E0E0)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
-          color: active ? Colors.white : AppTheme.textDark,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPageAction(IconData icon, bool available) {
-    return Container(
-      width: 28,
-      height: 28,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: const Color(0xFFE0E0E0)),
-      ),
-      child: Icon(icon, size: 16, color: available ? AppTheme.textDark : Colors.grey[300]),
     );
   }
 
@@ -566,6 +600,486 @@ class AnalyticsScreen extends StatelessWidget {
         fontWeight: FontWeight.w900,
         color: AppTheme.textGrey.withOpacity(0.6),
         letterSpacing: 0.8,
+      ),
+    );
+  }
+
+  Widget _buildReportParameters(List<Book> books, List<SearchRequest> requests) {
+    final monthName = DateFormat.yMMMM().format(_selectedMonth);
+    final daysInMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0).day;
+
+    return Container(
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.filter_list_rounded, size: 20, color: AppTheme.primaryNavy),
+              SizedBox(width: 12),
+              Text('Report Parameters', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+            ],
+          ),
+          const SizedBox(height: 32),
+          _buildFieldLabel('ANALYSIS PERIOD'),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xFFF1F3F9)),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      onPressed: () => _changeMonth(-1),
+                      icon: const Icon(Icons.chevron_left_rounded, color: Colors.grey, size: 22),
+                    ),
+                    Text(monthName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                    IconButton(
+                      onPressed: () => _changeMonth(1),
+                      icon: const Icon(Icons.chevron_right_rounded, color: Colors.grey, size: 22),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                GridView.builder(
+                  shrinkWrap: true,
+                  itemCount: daysInMonth,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 7,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
+                    childAspectRatio: 1,
+                  ),
+                  itemBuilder: (context, index) {
+                    final day = index + 1;
+                    final isToday = day == DateTime.now().day && _selectedMonth.month == DateTime.now().month && _selectedMonth.year == DateTime.now().year;
+                    return Container(
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: isToday ? AppTheme.primaryNavy : const Color(0xFFF8F9FA),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        day.toString(),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: isToday ? Colors.white : AppTheme.textDark,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+          _buildFieldLabel('RANKING DEPTH'),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              _buildDepthChip(5),
+              _buildDepthChip(10),
+              _buildDepthChip(25),
+            ],
+          ),
+          const SizedBox(height: 32),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {},
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.accentGold,
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                elevation: 0,
+              ),
+              child: const Text(
+                'Apply Filters',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, letterSpacing: 0.5),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(child: _buildParameterSummary('Total Searches', '${books.fold<int>(0, (total, book) => total + book.searchCount)}')),
+              const SizedBox(width: 12),
+              Expanded(child: _buildParameterSummary('Unavailable Requests', '${requests.where((request) => !request.found).fold<int>(0, (sum, item) => sum + item.count)}')),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildParameterSummary(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F9FA),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(color: AppTheme.textGrey, fontWeight: FontWeight.w600, fontSize: 12)),
+          const SizedBox(height: 8),
+          Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppTheme.textDark)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDepthChip(int value) {
+    final selected = _rankDepth == value;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _rankDepth = value),
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: selected ? AppTheme.primaryNavy : const Color(0xFFF8F9FA),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: selected ? AppTheme.accentGold : const Color(0xFFF1F3F9)),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            'Top $value',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: selected ? Colors.white : AppTheme.textDark,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickSummary(List<Book> books, List<SearchRequest> requests) {
+    final totalSearches = books.fold<int>(0, (sum, book) => sum + book.searchCount);
+    final categoryCounts = <String, int>{};
+    for (final book in books) {
+      categoryCounts[book.category] = (categoryCounts[book.category] ?? 0) + book.searchCount;
+    }
+    final topCategory = categoryCounts.entries.isEmpty ? 'N/A' : categoryCounts.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
+    final mostNeededBooks = books.where((book) => book.status.toLowerCase() != 'available').toList();
+
+    return Container(
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryNavy,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryNavy.withOpacity(0.3),
+            blurRadius: 30,
+            offset: const Offset(0, 15),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppTheme.accentGold,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const Text(
+              'QUICK SUMMARY',
+              style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+            ),
+          ),
+          const SizedBox(height: 32),
+          Text('Total Library Searches', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13, fontWeight: FontWeight.w500)),
+          const SizedBox(height: 6),
+          Text('$totalSearches', style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 24),
+          const Divider(color: Colors.white12),
+          const SizedBox(height: 24),
+          Text('Top Category', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13, fontWeight: FontWeight.w500)),
+          const SizedBox(height: 8),
+          Text(topCategory, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 24),
+          Text('Most Needed Books', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13, fontWeight: FontWeight.w500)),
+          const SizedBox(height: 8),
+          Text('${mostNeededBooks.length} books require review', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecommendationCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Admin Recommendation', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _recommendationController,
+            maxLines: 4,
+            decoration: InputDecoration(
+              hintText: 'Share a recommendation or a note for the report',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _isSavingRecommendation ? null : _saveRecommendation,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.accentGold,
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                  child: Text(_isSavingRecommendation ? 'Saving...' : 'Save Recommendation'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          StreamBuilder<String?>(
+            stream: _reportService.getLatestRecommendation(),
+            builder: (context, snapshot) {
+              final recommendation = snapshot.data;
+              if (recommendation == null || recommendation.isEmpty) {
+                return const Text('No recommendation has been recorded yet.', style: TextStyle(color: AppTheme.textGrey));
+              }
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Latest Recommendation', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                  const SizedBox(height: 8),
+                  Text(recommendation, style: const TextStyle(color: AppTheme.textDark, fontSize: 14)),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRankingTable(List<Book> books, List<SearchRequest> requests, String? recommendation) {
+    final topBooks = List<Book>.from(books)..sort((a, b) => b.searchCount.compareTo(a.searchCount));
+    final selectedBooks = topBooks.take(_rankDepth).toList();
+    return Container(
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Top Searched Books', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+              Text('Showing top $_rankDepth books', style: const TextStyle(color: AppTheme.textGrey, fontSize: 12, fontWeight: FontWeight.w500)),
+            ],
+          ),
+          const SizedBox(height: 32),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            decoration: const BoxDecoration(
+              color: AppTheme.primaryNavy,
+              borderRadius: BorderRadius.only(topLeft: Radius.circular(8), topRight: Radius.circular(8)),
+            ),
+            child: const Row(
+              children: [
+                SizedBox(width: 50, child: Text('RANK', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900))),
+                Expanded(flex: 2, child: Text('BOOK TITLE', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900))),
+                Expanded(flex: 1, child: Text('AUTHOR', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900))),
+                SizedBox(width: 100, child: Text('SEARCH COUNT', textAlign: TextAlign.right, style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900))),
+              ],
+            ),
+          ),
+          ...List.generate(selectedBooks.length, (index) {
+            final book = selectedBooks[index];
+            return _buildRankingItem('${index + 1}', book.title, book.author, '${book.searchCount}');
+          }),
+          const SizedBox(height: 32),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Report generated on: $_reportGeneratedLabel', style: TextStyle(color: AppTheme.textGrey.withOpacity(0.6), fontSize: 11)),
+              Row(
+                children: [
+                  const Text('Export report:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                  const SizedBox(width: 12),
+                  GestureDetector(
+                    onTap: _isExporting ? null : () => _exportExcel(_books, _requests, _latestRecommendation),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _isExporting ? Colors.grey.shade200 : AppTheme.accentGold,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text('Excel', style: TextStyle(color: _isExporting ? Colors.black38 : Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: _isExporting ? null : () => _exportWord(_books, _requests, _latestRecommendation),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _isExporting ? Colors.grey.shade200 : AppTheme.primaryNavy,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text('Word', style: TextStyle(color: _isExporting ? Colors.black38 : Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: _isExporting ? null : () => _exportPDF(_books, _requests, _latestRecommendation),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _isExporting ? Colors.grey.shade200 : Colors.red,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text('PDF', style: TextStyle(color: _isExporting ? Colors.black38 : Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUnavailableSearchTable(List<SearchRequest> requests) {
+    final unavailableRequests = requests.where((request) => !request.found).toList();
+    return Container(
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Unavailable Search Requests', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+          const SizedBox(height: 16),
+          if (unavailableRequests.isEmpty)
+            const Text('No missing book searches yet. Students are finding available titles successfully.', style: TextStyle(color: AppTheme.textGrey))
+          else
+            Column(
+              children: unavailableRequests.take(8).map((request) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 14),
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8F9FA),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(child: Text(request.query, style: const TextStyle(fontWeight: FontWeight.w700, color: AppTheme.textDark))),
+                      const SizedBox(width: 12),
+                      Text('${request.count} searches', style: const TextStyle(color: AppTheme.primaryNavy, fontWeight: FontWeight.w900)),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRankingItem(String rank, String title, String author, String count) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Color(0xFFF1F3F9))),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 50,
+            child: Container(
+              width: 32,
+              height: 32,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppTheme.accentGold.withOpacity(0.08),
+                shape: BoxShape.circle,
+              ),
+              child: Text(rank, style: const TextStyle(color: AppTheme.accentGold, fontWeight: FontWeight.w900, fontSize: 13)),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AppTheme.textDark), overflow: TextOverflow.ellipsis, maxLines: 2),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 1,
+            child: Text(author, style: const TextStyle(color: AppTheme.textGrey, fontSize: 13, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis, maxLines: 2),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 100,
+            child: Text(count, textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: AppTheme.primaryNavy)),
+          ),
+        ],
       ),
     );
   }

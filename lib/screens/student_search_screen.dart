@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/book.dart';
 import '../services/book_service.dart';
+import '../services/report_service.dart';
 import '../widgets/hierarchical_search_widget.dart';
 import 'login_screen.dart';
 
@@ -15,11 +16,14 @@ class StudentSearchScreen extends StatefulWidget {
 class _StudentSearchScreenState extends State<StudentSearchScreen> {
   final TextEditingController _searchController = TextEditingController();
   final BookService _bookService = BookService();
+  final ReportService _reportService = ReportService();
   String _searchQuery = '';
   bool _isSearching = false;
   bool _hasHierarchyActive = false;
   List<Book> _hierarchyFilteredBooks = [];
+  List<Book> _allBooks = [];
   final Set<String> _searchedBookIds = {}; // Track which books have been counted
+  String _lastLoggedQuery = '';
 
   @override
   void dispose() {
@@ -35,6 +39,15 @@ class _StudentSearchScreenState extends State<StudentSearchScreen> {
         _searchedBookIds.clear(); // Reset when search is cleared
       }
     });
+  }
+
+  void _submitSearch() {
+    final query = _searchController.text.trim();
+    _performSearch(query);
+    if (query.isEmpty || _lastLoggedQuery == query) return;
+    _lastLoggedQuery = query;
+    final results = _filterBooks(_allBooks);
+    _reportService.logSearchQuery(query, results.isNotEmpty);
   }
 
   void _onHierarchySearchResults(List<Book> results, bool isActive) {
@@ -205,6 +218,7 @@ class _StudentSearchScreenState extends State<StudentSearchScreen> {
                             child: TextField(
                               controller: _searchController,
                               onChanged: _performSearch,
+                              onSubmitted: (_) => _submitSearch(),
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -221,6 +235,10 @@ class _StudentSearchScreenState extends State<StudentSearchScreen> {
                                 contentPadding: EdgeInsets.symmetric(vertical: 16),
                               ),
                             ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.search, color: AppTheme.primaryNavy),
+                            onPressed: _searchQuery.isNotEmpty ? _submitSearch : null,
                           ),
                           if (_searchQuery.isNotEmpty)
                             IconButton(
@@ -271,7 +289,8 @@ class _StudentSearchScreenState extends State<StudentSearchScreen> {
                       }
 
                       final allBooks = snapshot.data!;
-                      
+                      _allBooks = allBooks;
+
                       if (_isSearching || _hasHierarchyActive) {
                         final searchResults = _filterBooks(allBooks);
                         return _buildSearchResults(searchResults, isMobile);
