@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:excel/excel.dart' as excelpkg;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -9,7 +11,6 @@ import '../models/search_request.dart';
 import '../services/book_service.dart';
 import '../services/report_service.dart';
 import '../theme/app_theme.dart';
-import '../utils/export_helper.dart';
 import '../widgets/main_layout.dart';
 
 class AnalyticsScreen extends StatefulWidget {
@@ -153,8 +154,17 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       if (bytes == null) throw Exception('Failed to encode Excel workbook.');
 
       final fileName = 'UNIMA_Library_Report_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx';
-      downloadBytes(bytes, fileName, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      _showSnack('✓ Excel report downloaded: $fileName');
+      final downloadsPath = '${Platform.environment['USERPROFILE']}\\Downloads';
+      final downloadsDir = Directory(downloadsPath);
+      
+      if (!await downloadsDir.exists()) {
+        await downloadsDir.create(recursive: true);
+      }
+      
+      final filePath = '$downloadsPath\\$fileName';
+      final file = File(filePath);
+      await file.writeAsBytes(bytes, flush: true);
+      _showSnack('✓ Excel report saved to:\n$filePath');
     } catch (error) {
       _showSnack('❌ Report export failed: ${error.toString()}');
     } finally {
@@ -256,8 +266,17 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       buffer.writeln('</html>');
 
       final fileName = 'UNIMA_Library_Report_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.html';
-      downloadText(buffer.toString(), fileName, 'text/html');
-      _showSnack('✓ HTML report downloaded: $fileName');
+      final downloadsPath = '${Platform.environment['USERPROFILE']}\\Downloads';
+      final downloadsDir = Directory(downloadsPath);
+      
+      if (!await downloadsDir.exists()) {
+        await downloadsDir.create(recursive: true);
+      }
+      
+      final filePath = '$downloadsPath\\$fileName';
+      final file = File(filePath);
+      await file.writeAsString(buffer.toString(), flush: true);
+      _showSnack('✓ HTML report saved to:\n$filePath');
     } catch (error) {
       _showSnack('❌ Report export failed: ${error.toString()}');
     } finally {
@@ -296,7 +315,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
                 pw.Text('Generated: $_reportGeneratedLabel', style: const pw.TextStyle(fontSize: 11)),
-                pw.Text('Analysis Period: ${DateFormat.yMMMd().format(_selectedDateRange.start)} to ${DateFormat.yMMMd().format(_selectedDateRange.end)}', style: const pw.TextStyle(fontSize: 11)),
+                pw.Text('Analysis Period: ${DateFormat.yMMMd().format(_selectedDateRange.start)} — ${DateFormat.yMMMd().format(_selectedDateRange.end)}', style: const pw.TextStyle(fontSize: 11)),
                 pw.Text('Ranking Depth: Top $_rankDepth Books', style: const pw.TextStyle(fontSize: 11)),
               ],
             ),
@@ -364,10 +383,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                pw.Text('- Total Books in Catalog: ${books.length}', style: const pw.TextStyle(fontSize: 11)),
-                pw.Text('- Total Search Requests: ${requests.fold<int>(0, (sum, r) => sum + r.count)}', style: const pw.TextStyle(fontSize: 11)),
-                pw.Text('- Available Books: ${books.where((b) => b.status.toLowerCase() == 'available').length}', style: const pw.TextStyle(fontSize: 11)),
-                pw.Text('- Unavailable Books Searched: ${needed.length}', style: const pw.TextStyle(fontSize: 11)),
+                pw.Text('• Total Books in Catalog: ${books.length}', style: const pw.TextStyle(fontSize: 11)),
+                pw.Text('• Total Search Requests: ${requests.fold<int>(0, (sum, r) => sum + r.count)}', style: const pw.TextStyle(fontSize: 11)),
+                pw.Text('• Available Books: ${books.where((b) => b.status.toLowerCase() == 'available').length}', style: const pw.TextStyle(fontSize: 11)),
+                pw.Text('• Unavailable Books Searched: ${needed.length}', style: const pw.TextStyle(fontSize: 11)),
               ],
             ),
             if (recommendation != null && recommendation.isNotEmpty) ...[
@@ -393,8 +412,17 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
       final bytes = await pdf.save();
       final fileName = 'UNIMA_Library_Report_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.pdf';
-      downloadBytes(bytes, fileName, 'application/pdf');
-      _showSnack('✓ PDF report downloaded: $fileName');
+      final downloadsPath = '${Platform.environment['USERPROFILE']}\\Downloads';
+      final downloadsDir = Directory(downloadsPath);
+      
+      if (!await downloadsDir.exists()) {
+        await downloadsDir.create(recursive: true);
+      }
+      
+      final filePath = '$downloadsPath\\$fileName';
+      final file = File(filePath);
+      await file.writeAsBytes(bytes, flush: true);
+      _showSnack('✓ PDF report saved to:\n$filePath');
     } catch (error) {
       _showSnack('❌ Report export failed: ${error.toString()}');
     } finally {
