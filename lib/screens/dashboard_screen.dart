@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../theme/app_theme.dart';
+import '../utils/export_helper.dart';
 import '../widgets/stats_card.dart';
 import '../widgets/main_layout.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -15,6 +17,43 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  bool _isExporting = false;
+
+  Future<void> _exportTopBooksCsv(List<Book> topBooks) async {
+    if (_isExporting) return;
+    setState(() => _isExporting = true);
+
+    try {
+      final buffer = StringBuffer();
+      buffer.writeln('Rank,Title,Author,Category,Status,Search Count');
+      for (var i = 0; i < topBooks.length; i++) {
+        final b = topBooks[i];
+        String esc(String v) => '"${v.replaceAll('"', '""')}"';
+        buffer.writeln('${i + 1},${esc(b.title)},${esc(b.author)},${esc(b.category)},${esc(b.status)},${b.searchCount}');
+      }
+
+      final fileName = 'UNIMA_Top_Books_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.csv';
+      downloadText(buffer.toString(), fileName, 'text/csv');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✓ CSV downloaded: $fileName'),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ Export failed: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<Book>>(
@@ -250,8 +289,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               const Flexible(child: Text('Top Most Searched Books', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
               TextButton(
-                onPressed: () {},
-                child: const Text('Download CSV', style: TextStyle(color: AppTheme.primaryNavy, fontSize: 13)),
+                onPressed: _isExporting ? null : () => _exportTopBooksCsv(topBooks),
+                child: Text(
+                  _isExporting ? 'Exporting...' : 'Download CSV',
+                  style: const TextStyle(color: AppTheme.primaryNavy, fontSize: 13),
+                ),
               ),
             ],
           ),

@@ -1,14 +1,15 @@
-import 'dart:io';
-
 import 'package:excel/excel.dart' as excelpkg;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 
 import '../models/book.dart';
 import '../models/search_request.dart';
 import '../services/book_service.dart';
 import '../services/report_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/export_helper.dart';
 import '../widgets/main_layout.dart';
 
 class AnalyticsScreen extends StatefulWidget {
@@ -27,9 +28,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   List<SearchRequest> _requests = [];
   String? _latestRecommendation;
   bool _isExporting = false;
-  DateTime _selectedMonth = DateTime.now();
   int _rankDepth = 10;
   bool _isSavingRecommendation = false;
+  DateTimeRange _selectedDateRange = DateTimeRange(
+    start: DateTime(DateTime.now().year, DateTime.now().month, 1),
+    end: DateTime.now(),
+  );
 
   @override
   void dispose() {
@@ -41,10 +45,19 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   String get _reportGeneratedLabel => DateFormat.yMMMMd().add_jm().format(DateTime.now());
 
-  void _changeMonth(int delta) {
-    setState(() {
-      _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month + delta, 1);
-    });
+  Future<void> _pickDateRange() async {
+    final DateTimeRange? picked = await showDateRangePicker(
+      context: context,
+      initialDateRange: _selectedDateRange,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+
+    if (picked != null) {
+      setState(() {
+        _selectedDateRange = picked;
+      });
+    }
   }
 
   Future<void> _saveRecommendation() async {
@@ -79,21 +92,25 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     try {
       final excel = excelpkg.Excel.createExcel();
       final sheet = excel['Reports'];
-      sheet.appendRow(['UNIMA Library Search Report']);
-      sheet.appendRow(['Generated', _reportGeneratedLabel]);
+      sheet.appendRow(['UNIMA LIBRARY SEARCH & AVAILABILITY REPORT']);
       sheet.appendRow([]);
-      sheet.appendRow(['Top Searched Books']);
-      sheet.appendRow(['Rank', 'Title', 'Author', 'Category', 'Status', 'Search Count']);
+      sheet.appendRow(['Generated', _reportGeneratedLabel]);
+      sheet.appendRow(['Analysis Period', '${DateFormat.yMMMd().format(_selectedDateRange.start)} — ${DateFormat.yMMMd().format(_selectedDateRange.end)}']);
+      sheet.appendRow(['Ranking Depth', 'Top $_rankDepth Books']);
+      sheet.appendRow([]);
 
-      final topBooks = List<Book>.from(books)
-        ..sort((a, b) => b.searchCount.compareTo(a.searchCount));
+      // Top Searched Books Section
+      sheet.appendRow(['TOP SEARCHED BOOKS']);
+      sheet.appendRow(['Rank', 'Title', 'Author', 'Category', 'Status', 'Search Count']);
+      final topBooks = List<Book>.from(books)..sort((a, b) => b.searchCount.compareTo(a.searchCount));
       for (var i = 0; i < topBooks.length && i < _rankDepth; i++) {
         final book = topBooks[i];
         sheet.appendRow([i + 1, book.title, book.author, book.category, book.status, book.searchCount]);
       }
 
+      // Most Needed Books Section
       sheet.appendRow([]);
-      sheet.appendRow(['Most Needed Books']);
+      sheet.appendRow(['MOST NEEDED BOOKS (Unavailable)']);
       sheet.appendRow(['Title', 'Author', 'Search Count', 'Status']);
       final needed = topBooks.where((book) => book.status.toLowerCase() != 'available').take(10).toList();
       if (needed.isEmpty) {
@@ -104,31 +121,42 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         }
       }
 
+      // Unavailable Search Queries Section
       sheet.appendRow([]);
-      sheet.appendRow(['Unavailable Search Queries']);
-      sheet.appendRow(['Query', 'Count', 'Last Searched']);
+      sheet.appendRow(['UNAVAILABLE SEARCH QUERIES']);
+      sheet.appendRow(['Query', 'Count', 'Last Searched', 'Status']);
       final unavailableRequests = requests.where((request) => !request.found).toList();
       if (unavailableRequests.isEmpty) {
         sheet.appendRow(['No unavailable search requests found']);
       } else {
         for (final request in unavailableRequests) {
-          sheet.appendRow([request.query, request.count, DateFormat.yMd().add_jm().format(request.lastSearched)]);
+          sheet.appendRow([request.query, request.count, DateFormat.yMd().add_jm().format(request.lastSearched), 'Not Found']);
         }
       }
 
+      // Admin Recommendation Section
       if (recommendation != null && recommendation.isNotEmpty) {
         sheet.appendRow([]);
-        sheet.appendRow(['Admin Recommendation']);
+        sheet.appendRow(['ADMIN RECOMMENDATION & NOTES']);
         sheet.appendRow([recommendation]);
       }
+
+      // Summary Statistics
+      sheet.appendRow([]);
+      sheet.appendRow(['SUMMARY STATISTICS']);
+      sheet.appendRow(['Total Books in Catalog', books.length]);
+      sheet.appendRow(['Total Search Requests', requests.fold<int>(0, (sum, r) => sum + r.count)]);
+      sheet.appendRow(['Available Books', books.where((b) => b.status.toLowerCase() == 'available').length]);
+      sheet.appendRow(['Unavailable Books Searched', needed.length]);
 
       final bytes = excel.encode();
       if (bytes == null) throw Exception('Failed to encode Excel workbook.');
 
-      final resultPath = await _writeBinaryFile('unima_library_report_${DateTime.now().millisecondsSinceEpoch}.xlsx', bytes);
-      _showSnack('Excel report exported to: $resultPath');
+      final fileName = 'UNIMA_Library_Report_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx';
+      downloadBytes(bytes, fileName, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      _showSnack('✓ Excel report downloaded: $fileName');
     } catch (error) {
-      _showSnack('Report export failed: ${error.toString()}');
+      _showSnack('❌ Report export failed: ${error.toString()}');
     } finally {
       setState(() {
         _isExporting = false;
@@ -143,54 +171,95 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
     try {
       final buffer = StringBuffer();
-      buffer.writeln('<html><body>');
-      buffer.writeln('<h1>UNIMA Library Search Report</h1>');
+      buffer.writeln('<html>');
+      buffer.writeln('<head>');
+      buffer.writeln('<meta charset="UTF-8">');
+      buffer.writeln('<style>');
+      buffer.writeln('body { font-family: Arial, sans-serif; line-height: 1.6; margin: 20px; }');
+      buffer.writeln('h1 { color: #003366; border-bottom: 3px solid #FFB81C; padding-bottom: 10px; }');
+      buffer.writeln('h2 { color: #003366; margin-top: 20px; }');
+      buffer.writeln('table { width: 100%; border-collapse: collapse; margin: 15px 0; }');
+      buffer.writeln('th { background-color: #003366; color: white; padding: 10px; text-align: left; }');
+      buffer.writeln('td { border: 1px solid #ddd; padding: 8px; }');
+      buffer.writeln('tr:nth-child(even) { background-color: #f9f9f9; }');
+      buffer.writeln('.meta { color: #666; font-size: 0.9em; margin: 5px 0; }');
+      buffer.writeln('.recommendation { background-color: #fff3cd; padding: 15px; border-left: 4px solid #FFB81C; margin: 20px 0; }');
+      buffer.writeln('</style>');
+      buffer.writeln('</head>');
+      buffer.writeln('<body>');
+
+      // Header
+      buffer.writeln('<h1>UNIMA LIBRARY SEARCH & AVAILABILITY REPORT</h1>');
+      buffer.writeln('<div class="meta">');
       buffer.writeln('<p><strong>Generated:</strong> $_reportGeneratedLabel</p>');
+      buffer.writeln('<p><strong>Analysis Period:</strong> ${DateFormat.yMMMd().format(_selectedDateRange.start)} — ${DateFormat.yMMMd().format(_selectedDateRange.end)}</p>');
+      buffer.writeln('<p><strong>Ranking Depth:</strong> Top $_rankDepth Books</p>');
+      buffer.writeln('</div>');
+
+      // Top Searched Books
       buffer.writeln('<h2>Top Searched Books</h2>');
       buffer.writeln('<table border="1" cellpadding="6" cellspacing="0">');
       buffer.writeln('<tr><th>Rank</th><th>Title</th><th>Author</th><th>Category</th><th>Status</th><th>Search Count</th></tr>');
-      final topBooks = List<Book>.from(books)
-        ..sort((a, b) => b.searchCount.compareTo(a.searchCount));
+      final topBooks = List<Book>.from(books)..sort((a, b) => b.searchCount.compareTo(a.searchCount));
       for (var i = 0; i < topBooks.length && i < _rankDepth; i++) {
         final book = topBooks[i];
-        buffer.writeln('<tr><td>${i + 1}</td><td>${book.title}</td><td>${book.author}</td><td>${book.category}</td><td>${book.status}</td><td>${book.searchCount}</td></tr>');
+        buffer.writeln('<tr><td>${i + 1}</td><td><strong>${book.title}</strong></td><td>${book.author}</td><td>${book.category}</td><td>${book.status}</td><td>${book.searchCount}</td></tr>');
       }
       buffer.writeln('</table>');
 
-      buffer.writeln('<h2>Most Needed Books</h2>');
+      // Most Needed Books
+      buffer.writeln('<h2>Most Needed Books (Unavailable)</h2>');
       final needed = topBooks.where((book) => book.status.toLowerCase() != 'available').take(10).toList();
       if (needed.isEmpty) {
-        buffer.writeln('<p>No unavailable books currently flagged.</p>');
+        buffer.writeln('<p><em>No unavailable books currently flagged.</em></p>');
       } else {
-        buffer.writeln('<ul>');
+        buffer.writeln('<table border="1" cellpadding="6" cellspacing="0">');
+        buffer.writeln('<tr><th>Title</th><th>Author</th><th>Search Count</th><th>Status</th></tr>');
         for (final book in needed) {
-          buffer.writeln('<li><strong>${book.title}</strong> by ${book.author} — ${book.searchCount} searches (${book.status})</li>');
+          buffer.writeln('<tr><td><strong>${book.title}</strong></td><td>${book.author}</td><td>${book.searchCount}</td><td>${book.status}</td></tr>');
         }
-        buffer.writeln('</ul>');
+        buffer.writeln('</table>');
       }
 
+      // Unavailable Search Queries
       buffer.writeln('<h2>Unavailable Search Queries</h2>');
       final unavailableRequests = requests.where((request) => !request.found).toList();
       if (unavailableRequests.isEmpty) {
-        buffer.writeln('<p>No unavailable search requests found.</p>');
+        buffer.writeln('<p><em>No unavailable search requests found. Students are finding available titles successfully.</em></p>');
       } else {
-        buffer.writeln('<ul>');
+        buffer.writeln('<table border="1" cellpadding="6" cellspacing="0">');
+        buffer.writeln('<tr><th>Query</th><th>Search Count</th><th>Last Searched</th><th>Status</th></tr>');
         for (final request in unavailableRequests) {
-          buffer.writeln('<li>${request.query} — ${request.count} times (last: ${DateFormat.yMd().add_jm().format(request.lastSearched)})</li>');
+          buffer.writeln('<tr><td>${request.query}</td><td>${request.count}</td><td>${DateFormat.yMd().add_jm().format(request.lastSearched)}</td><td>Not Found</td></tr>');
         }
-        buffer.writeln('</ul>');
+        buffer.writeln('</table>');
       }
 
+      // Admin Recommendation
       if (recommendation != null && recommendation.isNotEmpty) {
-        buffer.writeln('<h2>Admin Recommendation</h2>');
+        buffer.writeln('<div class="recommendation">');
+        buffer.writeln('<h2>Admin Recommendation & Notes</h2>');
         buffer.writeln('<p>${recommendation.replaceAll('\n', '<br/>')}</p>');
+        buffer.writeln('</div>');
       }
 
-      buffer.writeln('</body></html>');
-      final resultPath = await _writeTextFile('unima_library_report_${DateTime.now().millisecondsSinceEpoch}.doc', buffer.toString());
-      _showSnack('Word report exported to: $resultPath');
+      // Summary Statistics
+      buffer.writeln('<h2>Summary Statistics</h2>');
+      buffer.writeln('<ul>');
+      buffer.writeln('<li><strong>Total Books in Catalog:</strong> ${books.length}</li>');
+      buffer.writeln('<li><strong>Total Search Requests:</strong> ${requests.fold<int>(0, (sum, r) => sum + r.count)}</li>');
+      buffer.writeln('<li><strong>Available Books:</strong> ${books.where((b) => b.status.toLowerCase() == 'available').length}</li>');
+      buffer.writeln('<li><strong>Unavailable Books Searched:</strong> ${needed.length}</li>');
+      buffer.writeln('</ul>');
+
+      buffer.writeln('</body>');
+      buffer.writeln('</html>');
+
+      final fileName = 'UNIMA_Library_Report_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.html';
+      downloadText(buffer.toString(), fileName, 'text/html');
+      _showSnack('✓ HTML report downloaded: $fileName');
     } catch (error) {
-      _showSnack('Report export failed: ${error.toString()}');
+      _showSnack('❌ Report export failed: ${error.toString()}');
     } finally {
       setState(() {
         _isExporting = false;
@@ -198,35 +267,141 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     }
   }
 
+  Future<void> _exportPDF(List<Book> books, List<SearchRequest> requests, String? recommendation) async {
+    setState(() {
+      _isExporting = true;
+    });
 
-  Future<String> _writeBinaryFile(String fileName, List<int> bytes) async {
-    final downloadsPath = '${Platform.environment['USERPROFILE']}\\Downloads';
-    final downloadsDir = Directory(downloadsPath);
-    
-    // Ensure downloads directory exists
-    if (!await downloadsDir.exists()) {
-      await downloadsDir.create(recursive: true);
-    }
-    
-    final path = '$downloadsPath\\$fileName';
-    final file = File(path);
-    await file.writeAsBytes(bytes, flush: true);
-    return path;
-  }
+    try {
+      final pdf = pw.Document();
+      final topBooks = List<Book>.from(books)..sort((a, b) => b.searchCount.compareTo(a.searchCount));
+      final needed = topBooks.where((book) => book.status.toLowerCase() != 'available').take(10).toList();
+      final unavailableRequests = requests.where((request) => !request.found).toList();
+      final displayCount = topBooks.length > _rankDepth ? _rankDepth : topBooks.length;
 
-  Future<String> _writeTextFile(String fileName, String content) async {
-    final downloadsPath = '${Platform.environment['USERPROFILE']}\\Downloads';
-    final downloadsDir = Directory(downloadsPath);
-    
-    // Ensure downloads directory exists
-    if (!await downloadsDir.exists()) {
-      await downloadsDir.create(recursive: true);
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(40),
+          build: (context) => [
+            pw.Header(
+              level: 0,
+              child: pw.Text(
+                'UNIMA LIBRARY SEARCH & AVAILABILITY REPORT',
+                style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold),
+              ),
+            ),
+            pw.SizedBox(height: 20),
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text('Generated: $_reportGeneratedLabel', style: const pw.TextStyle(fontSize: 11)),
+                pw.Text('Analysis Period: ${DateFormat.yMMMd().format(_selectedDateRange.start)} to ${DateFormat.yMMMd().format(_selectedDateRange.end)}', style: const pw.TextStyle(fontSize: 11)),
+                pw.Text('Ranking Depth: Top $_rankDepth Books', style: const pw.TextStyle(fontSize: 11)),
+              ],
+            ),
+            pw.SizedBox(height: 20),
+            pw.Header(
+              level: 1,
+              child: pw.Text('Top Searched Books', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+            ),
+            pw.SizedBox(height: 10),
+            pw.TableHelper.fromTextArray(
+              headers: ['Rank', 'Title', 'Author', 'Category', 'Status', 'Count'],
+              data: List.generate(
+                displayCount,
+                (index) => [
+                  (index + 1).toString(),
+                  topBooks[index].title,
+                  topBooks[index].author,
+                  topBooks[index].category,
+                  topBooks[index].status,
+                  topBooks[index].searchCount.toString(),
+                ],
+              ),
+              cellStyle: const pw.TextStyle(fontSize: 9),
+              headerStyle: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+              cellAlignment: pw.Alignment.centerLeft,
+            ),
+            pw.SizedBox(height: 20),
+            pw.Header(
+              level: 1,
+              child: pw.Text('Most Needed Books (Unavailable)', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+            ),
+            pw.SizedBox(height: 10),
+            if (needed.isEmpty)
+              pw.Text('No unavailable books currently flagged.', style: pw.TextStyle(fontSize: 11, fontStyle: pw.FontStyle.italic))
+            else
+              pw.TableHelper.fromTextArray(
+                headers: ['Title', 'Author', 'Search Count', 'Status'],
+                data: needed.map((book) => [book.title, book.author, book.searchCount.toString(), book.status]).toList(),
+                cellStyle: const pw.TextStyle(fontSize: 9),
+                headerStyle: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+                cellAlignment: pw.Alignment.centerLeft,
+              ),
+            pw.SizedBox(height: 20),
+            pw.Header(
+              level: 1,
+              child: pw.Text('Unavailable Search Queries', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+            ),
+            pw.SizedBox(height: 10),
+            if (unavailableRequests.isEmpty)
+              pw.Text('No unavailable search requests found. Students are finding available titles successfully.', style: pw.TextStyle(fontSize: 11, fontStyle: pw.FontStyle.italic))
+            else
+              pw.TableHelper.fromTextArray(
+                headers: ['Query', 'Count', 'Last Searched', 'Status'],
+                data: unavailableRequests.map((r) => [r.query, r.count.toString(), DateFormat.yMd().format(r.lastSearched), 'Not Found']).toList(),
+                cellStyle: const pw.TextStyle(fontSize: 9),
+                headerStyle: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+                cellAlignment: pw.Alignment.centerLeft,
+              ),
+            pw.SizedBox(height: 20),
+            pw.Header(
+              level: 1,
+              child: pw.Text('Summary Statistics', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+            ),
+            pw.SizedBox(height: 10),
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text('- Total Books in Catalog: ${books.length}', style: const pw.TextStyle(fontSize: 11)),
+                pw.Text('- Total Search Requests: ${requests.fold<int>(0, (sum, r) => sum + r.count)}', style: const pw.TextStyle(fontSize: 11)),
+                pw.Text('- Available Books: ${books.where((b) => b.status.toLowerCase() == 'available').length}', style: const pw.TextStyle(fontSize: 11)),
+                pw.Text('- Unavailable Books Searched: ${needed.length}', style: const pw.TextStyle(fontSize: 11)),
+              ],
+            ),
+            if (recommendation != null && recommendation.isNotEmpty) ...[
+              pw.SizedBox(height: 20),
+              pw.Container(
+                padding: const pw.EdgeInsets.all(15),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border(left: pw.BorderSide(width: 4)),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text('Admin Recommendation & Notes', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                    pw.SizedBox(height: 10),
+                    pw.Text(recommendation, style: const pw.TextStyle(fontSize: 11)),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      );
+
+      final bytes = await pdf.save();
+      final fileName = 'UNIMA_Library_Report_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.pdf';
+      downloadBytes(bytes, fileName, 'application/pdf');
+      _showSnack('✓ PDF report downloaded: $fileName');
+    } catch (error) {
+      _showSnack('❌ Report export failed: ${error.toString()}');
+    } finally {
+      setState(() {
+        _isExporting = false;
+      });
     }
-    
-    final path = '$downloadsPath\\$fileName';
-    final file = File(path);
-    await file.writeAsString(content, flush: true);
-    return path;
   }
 
   void _showSnack(String message) {
@@ -234,6 +409,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
+        duration: const Duration(seconds: 4),
       ),
     );
   }
@@ -268,7 +444,22 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       final books = bookSnapshot.data!;
                       _books = books; // Update instance variable
                       return StreamBuilder<List<SearchRequest>>(
-                        stream: _reportService.getSearchRequests(),
+                        stream: _reportService.getSearchRequests(
+                          startDate: DateTime(
+                            _selectedDateRange.start.year,
+                            _selectedDateRange.start.month,
+                            _selectedDateRange.start.day,
+                          ),
+                          endDate: DateTime(
+                            _selectedDateRange.end.year,
+                            _selectedDateRange.end.month,
+                            _selectedDateRange.end.day,
+                            23,
+                            59,
+                            59,
+                            999,
+                          ),
+                        ),
                         builder: (context, requestSnapshot) {
                           final requests = requestSnapshot.data ?? [];
                           _requests = requests; // Update instance variable
@@ -506,8 +697,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 
   Widget _buildReportParameters(List<Book> books, List<SearchRequest> requests) {
-    final monthName = DateFormat.yMMMM().format(_selectedMonth);
-    final daysInMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0).day;
+    final start = _selectedDateRange.start;
+    final end = _selectedDateRange.end;
+    final totalSearches = requests.fold<int>(0, (sum, request) => sum + request.count);
+    final unavailableSearches = requests.where((request) => !request.found).fold<int>(0, (sum, request) => sum + request.count);
 
     return Container(
       padding: const EdgeInsets.all(32),
@@ -535,59 +728,28 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           const SizedBox(height: 32),
           _buildFieldLabel('ANALYSIS PERIOD'),
           const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFFF1F3F9)),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      onPressed: () => _changeMonth(-1),
-                      icon: const Icon(Icons.chevron_left_rounded, color: Colors.grey, size: 22),
+          GestureDetector(
+            onTap: _pickDateRange,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFFF1F3F9)),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.date_range_rounded, color: AppTheme.primaryNavy, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '${DateFormat.yMMMd().format(start)} — ${DateFormat.yMMMd().format(end)}',
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
                     ),
-                    Text(monthName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                    IconButton(
-                      onPressed: () => _changeMonth(1),
-                      icon: const Icon(Icons.chevron_right_rounded, color: Colors.grey, size: 22),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                GridView.builder(
-                  shrinkWrap: true,
-                  itemCount: daysInMonth,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 7,
-                    mainAxisSpacing: 8,
-                    crossAxisSpacing: 8,
-                    childAspectRatio: 1,
                   ),
-                  itemBuilder: (context, index) {
-                    final day = index + 1;
-                    final isToday = day == DateTime.now().day && _selectedMonth.month == DateTime.now().month && _selectedMonth.year == DateTime.now().year;
-                    return Container(
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: isToday ? AppTheme.primaryNavy : const Color(0xFFF8F9FA),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        day.toString(),
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: isToday ? Colors.white : AppTheme.textDark,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ],
+                  const Icon(Icons.edit, color: Colors.grey, size: 20),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 32),
@@ -604,7 +766,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () {},
+              onPressed: () => setState(() {}),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.accentGold,
                 padding: const EdgeInsets.symmetric(vertical: 20),
@@ -620,9 +782,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           const SizedBox(height: 24),
           Row(
             children: [
-              Expanded(child: _buildParameterSummary('Total Searches', '${books.fold<int>(0, (total, book) => total + book.searchCount)}')),
+              Expanded(child: _buildParameterSummary('Total Searches', '$totalSearches')),
               const SizedBox(width: 12),
-              Expanded(child: _buildParameterSummary('Unavailable Requests', '${requests.where((request) => !request.found).fold<int>(0, (sum, item) => sum + item.count)}')),
+              Expanded(child: _buildParameterSummary('Unavailable Requests', '$unavailableSearches')),
             ],
           ),
         ],
@@ -873,7 +1035,19 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         color: _isExporting ? Colors.grey.shade200 : AppTheme.primaryNavy,
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: Text('Word', style: TextStyle(color: _isExporting ? Colors.black38 : Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                      child: Text('HTML', style: TextStyle(color: _isExporting ? Colors.black38 : Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: _isExporting ? null : () => _exportPDF(_books, _requests, _latestRecommendation),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _isExporting ? Colors.grey.shade200 : Colors.red,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text('PDF', style: TextStyle(color: _isExporting ? Colors.black38 : Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
                     ),
                   ),
                 ],
