@@ -5,8 +5,17 @@ class ReportService {
   final CollectionReference _searchDb = FirebaseFirestore.instance.collection('search_requests');
   final CollectionReference _recommendationDb = FirebaseFirestore.instance.collection('recommendations');
 
-  Stream<List<SearchRequest>> getSearchRequests() {
-    return _searchDb.orderBy('count', descending: true).snapshots().map((snapshot) {
+  Stream<List<SearchRequest>> getSearchRequests({DateTime? startDate, DateTime? endDate}) {
+    var query = _searchDb as Query;
+    if (startDate != null) {
+      query = query.where('lastSearched', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
+    }
+    if (endDate != null) {
+      query = query.where('lastSearched', isLessThanOrEqualTo: Timestamp.fromDate(endDate));
+    }
+    query = query.orderBy('lastSearched', descending: true);
+
+    return query.snapshots().map((snapshot) {
       return snapshot.docs.map((doc) {
         return SearchRequest.fromMap(doc.data() as Map<String, dynamic>, doc.id);
       }).toList();
