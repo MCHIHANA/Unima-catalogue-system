@@ -3,8 +3,6 @@ import 'dart:io';
 import 'package:excel/excel.dart' as excelpkg;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
 
 import '../models/book.dart';
 import '../models/search_request.dart';
@@ -200,101 +198,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     }
   }
 
-  Future<void> _exportPDF(List<Book> books, List<SearchRequest> requests, String? recommendation) async {
-    setState(() {
-      _isExporting = true;
-    });
-
-    try {
-      final pdf = pw.Document();
-
-      final topBooks = List<Book>.from(books)
-        ..sort((a, b) => b.searchCount.compareTo(a.searchCount));
-      final needed = topBooks.where((book) => book.status.toLowerCase() != 'available').take(10).toList();
-      final unavailableRequests = requests.where((request) => !request.found).toList();
-
-      pdf.addPage(
-        pw.MultiPage(
-          pageFormat: PdfPageFormat.a4,
-          build: (pw.Context context) => [
-            pw.Header(
-              level: 0,
-              child: pw.Text('UNIMA Library Search Report',
-                  style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
-            ),
-            pw.Paragraph(text: 'Generated: $_reportGeneratedLabel'),
-            pw.SizedBox(height: 20),
-
-            // Top Searched Books
-            pw.Header(level: 1, child: pw.Text('Top Searched Books')),
-            pw.TableHelper.fromTextArray(
-              headers: ['Rank', 'Title', 'Author', 'Category', 'Status', 'Search Count'],
-              data: [
-                for (var i = 0; i < topBooks.length && i < _rankDepth; i++)
-                  [
-                    (i + 1).toString(),
-                    topBooks[i].title,
-                    topBooks[i].author,
-                    topBooks[i].category,
-                    topBooks[i].status,
-                    topBooks[i].searchCount.toString(),
-                  ]
-              ],
-            ),
-            pw.SizedBox(height: 20),
-
-            // Most Needed Books
-            pw.Header(level: 1, child: pw.Text('Most Needed Books')),
-            if (needed.isEmpty)
-              pw.Paragraph(text: 'No unavailable books currently flagged')
-            else
-              pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  for (final book in needed)
-                    pw.Bullet(
-                      text: '${book.title} by ${book.author} — ${book.searchCount} searches (${book.status})',
-                    )
-                ],
-              ),
-            pw.SizedBox(height: 20),
-
-            // Unavailable Search Queries
-            pw.Header(level: 1, child: pw.Text('Unavailable Search Queries')),
-            if (unavailableRequests.isEmpty)
-              pw.Paragraph(text: 'No unavailable search requests found')
-            else
-              pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  for (final request in unavailableRequests)
-                    pw.Bullet(
-                      text: '${request.query} — ${request.count} times (last: ${DateFormat.yMd().add_jm().format(request.lastSearched)})',
-                    )
-                ],
-              ),
-
-            // Admin Recommendation
-            if (recommendation != null && recommendation.isNotEmpty) ...[
-              pw.SizedBox(height: 20),
-              pw.Header(level: 1, child: pw.Text('Admin Recommendation')),
-              pw.Paragraph(text: recommendation),
-            ],
-          ],
-        ),
-      );
-
-      final bytes = await pdf.save();
-      final resultPath = await _writeBinaryFile('unima_library_report_${DateTime.now().millisecondsSinceEpoch}.pdf', bytes);
-      _showSnack('PDF report exported to: $resultPath');
-    } catch (error) {
-      _showSnack('Report export failed: ${error.toString()}');
-    } finally {
-      setState(() {
-        _isExporting = false;
-      });
-    }
-  }
 
   Future<String> _writeBinaryFile(String fileName, List<int> bytes) async {
     final downloadsPath = '${Platform.environment['USERPROFILE']}\\Downloads';
@@ -500,8 +403,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   _buildButton('Export Excel', Icons.grid_view_outlined, false, () => _exportExcel(_books, _requests, _latestRecommendation)),
                   const SizedBox(width: 16),
                   _buildButton('Export Word', Icons.description_outlined, true, () => _exportWord(_books, _requests, _latestRecommendation)),
-                  const SizedBox(width: 16),
-                  _buildButton('Export PDF', Icons.picture_as_pdf_outlined, false, () => _exportPDF(_books, _requests, _latestRecommendation)),
                 ],
               ),
           ],
@@ -973,18 +874,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text('Word', style: TextStyle(color: _isExporting ? Colors.black38 : Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: _isExporting ? null : () => _exportPDF(_books, _requests, _latestRecommendation),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: _isExporting ? Colors.grey.shade200 : Colors.red,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text('PDF', style: TextStyle(color: _isExporting ? Colors.black38 : Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
                     ),
                   ),
                 ],
