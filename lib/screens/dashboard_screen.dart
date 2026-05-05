@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../theme/app_theme.dart';
@@ -6,6 +7,7 @@ import '../widgets/stats_card.dart';
 import '../widgets/main_layout.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'manage_books_screen.dart';
+import 'student_search_screen.dart';
 import '../models/book.dart';
 import '../services/book_service.dart';
 
@@ -18,6 +20,73 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   bool _isExporting = false;
+  final TextEditingController _searchController = TextEditingController();
+  List<Book> _allBooks = [];
+  List<Book> _filteredBooks = [];
+  bool _showSearchResults = false;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _performSearch(String query) {
+    if (query.isEmpty) {
+      setState(() {
+        _showSearchResults = false;
+        _filteredBooks = [];
+      });
+      return;
+    }
+
+    final lowerQuery = query.toLowerCase();
+    final results = _allBooks.where((book) {
+      return book.title.toLowerCase().contains(lowerQuery) ||
+             book.author.toLowerCase().contains(lowerQuery) ||
+             book.isbn.toLowerCase().contains(lowerQuery) ||
+             book.category.toLowerCase().contains(lowerQuery);
+    }).toList();
+
+    setState(() {
+      _filteredBooks = results;
+      _showSearchResults = true;
+    });
+  }
+
+  Future<void> _logout() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryNavy,
+            ),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await FirebaseAuth.instance.signOut();
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const StudentSearchScreen()),
+          (route) => false,
+        );
+      }
+    }
+  }
 
   Future<void> _exportTopBooksCsv(List<Book> topBooks) async {
     if (_isExporting) return;
@@ -60,6 +129,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       stream: BookService().getBooks(),
       builder: (context, snapshot) {
         final books = snapshot.data ?? [];
+        _allBooks = books; // Store for search
         
         int totalSearches = 0;
         for (var b in books) {
@@ -81,70 +151,101 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   _buildHeader(isMobile),
                   Expanded(
-                    child: SingleChildScrollView(
-                      padding: EdgeInsets.all(isMobile ? 16 : 32),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Welcome, Librarian',
-                            style: TextStyle(
-                              fontSize: isMobile ? 24 : 32,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textDark,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
+                    child: Stack(
+                      children: [
+                        SingleChildScrollView(
+                          padding: EdgeInsets.all(isMobile ? 16 : 32),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      'Welcome, Librarian',
+                                      style: TextStyle(
+                                        fontSize: isMobile ? 24 : 32,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.textDark,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  ElevatedButton.icon(
+                                    onPressed: () {
+                                      Navigator.pushReplacement(
+                                        context,
+                                        MaterialPageRoute(builder: (context) => const StudentSearchScreen()),
+                                      );
+                                    },
+                                    icon: const Icon(Icons.arrow_back, size: 18),
+                                    label: const Text('STUDENT VIEW'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.accentGold,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      elevation: 0,
+                                      textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 0.5),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(builder: (context) => const ManageBooksScreen()),
+                                  );
+                                },
+                                icon: const Icon(Icons.menu_book_rounded, size: 20),
+                                label: const Text('MANAGE BOOKS'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.primaryNavy,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  elevation: 0,
+                                  textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5),
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              Text(
+                                'University of Malawi Library Catalogue Reserve System Overview • Academic Session 2023/24',
+                                style: TextStyle(fontSize: isMobile ? 12 : 14, color: AppTheme.textGrey),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 2,
+                              ),
+                              const SizedBox(height: 32),
+                              _buildTopStats(books.length, totalSearches, mostSearched, isMobile),
+                              const SizedBox(height: 32),
+                              if (isMobile || isTablet)
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildTopBooksSection(topBooks),
+                                    const SizedBox(height: 32),
+                                    _buildSearchTrendsSection(topBooks),
+                                  ],
+                                )
+                              else
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(flex: 3, child: _buildTopBooksSection(topBooks)),
+                                    const SizedBox(width: 32),
+                                    Expanded(flex: 2, child: _buildSearchTrendsSection(topBooks)),
+                                  ],
+                                ),
+                            ],
                           ),
-                          const SizedBox(height: 12),
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(builder: (context) => const ManageBooksScreen()),
-                              );
-                            },
-                            icon: const Icon(Icons.menu_book_rounded, size: 20),
-                            label: const Text('MANAGE BOOKS'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.primaryNavy,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              elevation: 0,
-                              textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5),
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          Text(
-                            'University of Malawi Library Catalogue Reserve System Overview • Academic Session 2023/24',
-                            style: TextStyle(fontSize: isMobile ? 12 : 14, color: AppTheme.textGrey),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 2,
-                          ),
-                          const SizedBox(height: 32),
-                          _buildTopStats(books.length, totalSearches, mostSearched, isMobile),
-                          const SizedBox(height: 32),
-                          if (isMobile || isTablet)
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildTopBooksSection(topBooks),
-                                const SizedBox(height: 32),
-                                _buildSearchTrendsSection(topBooks),
-                              ],
-                            )
-                          else
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(flex: 3, child: _buildTopBooksSection(topBooks)),
-                                const SizedBox(width: 32),
-                                Expanded(flex: 2, child: _buildSearchTrendsSection(topBooks)),
-                              ],
-                            ),
-                        ],
-                      ),
+                        ),
+                        if (_showSearchResults)
+                          _buildSearchResultsOverlay(isMobile),
+                      ],
                     ),
                   ),
                 ],
@@ -180,8 +281,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: AppTheme.accentGold.withOpacity(0.5)),
               ),
-              child: const TextField(
-                decoration: InputDecoration(
+              child: TextField(
+                controller: _searchController,
+                onChanged: _performSearch,
+                onSubmitted: (_) => _performSearch(_searchController.text),
+                decoration: const InputDecoration(
                   hintText: 'Search library resources...',
                   hintStyle: TextStyle(fontSize: 13, color: AppTheme.textGrey),
                   prefixIcon: Icon(Icons.search, size: 20, color: AppTheme.accentGold),
@@ -195,11 +299,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           SizedBox(width: isMobile ? 16 : 24),
           const Icon(Icons.notifications_none, color: AppTheme.textDark),
-          if (!isMobile) SizedBox(width: 24),
-          SizedBox(width: isMobile ? 8 : 12),
-          const CircleAvatar(
-            radius: 18,
-            backgroundColor: Color(0xFFE0E0E0),
+          SizedBox(width: isMobile ? 8 : 24),
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'logout') {
+                _logout();
+              }
+            },
+            offset: const Offset(0, 50),
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, size: 18, color: AppTheme.primaryNavy),
+                    SizedBox(width: 12),
+                    Text('Logout'),
+                  ],
+                ),
+              ),
+            ],
+            child: const CircleAvatar(
+              radius: 18,
+              backgroundColor: AppTheme.primaryNavy,
+              child: Icon(Icons.person, size: 20, color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -418,6 +542,168 @@ class _DashboardScreenState extends State<DashboardScreen> {
             borderRadius: BorderRadius.circular(4),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSearchResultsOverlay(bool isMobile) {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _showSearchResults = false;
+            _searchController.clear();
+          });
+        },
+        child: Container(
+          color: Colors.black54,
+          child: Center(
+            child: GestureDetector(
+              onTap: () {}, // Prevent closing when tapping inside
+              child: Container(
+                width: isMobile ? MediaQuery.of(context).size.width * 0.9 : 700,
+                height: MediaQuery.of(context).size.height * 0.8,
+                margin: EdgeInsets.all(isMobile ? 16 : 32),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: const BoxDecoration(
+                        color: AppTheme.primaryNavy,
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(16),
+                          topRight: Radius.circular(16),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.search, color: Colors.white),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Search Results (${_filteredBooks.length} found)',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () {
+                              setState(() {
+                                _showSearchResults = false;
+                                _searchController.clear();
+                              });
+                            },
+                            icon: const Icon(Icons.close, color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: _filteredBooks.isEmpty
+                          ? const Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.search_off, size: 64, color: AppTheme.textGrey),
+                                  SizedBox(height: 16),
+                                  Text(
+                                    'No books found',
+                                    style: TextStyle(fontSize: 18, color: AppTheme.textGrey),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.all(16),
+                              itemCount: _filteredBooks.length,
+                              itemBuilder: (context, index) {
+                                final book = _filteredBooks[index];
+                                return Card(
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  elevation: 2,
+                                  child: ListTile(
+                                    contentPadding: const EdgeInsets.all(16),
+                                    leading: Container(
+                                      width: 50,
+                                      height: 50,
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.accentGold.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(Icons.book, color: AppTheme.accentGold),
+                                    ),
+                                    title: Text(
+                                      book.title,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    subtitle: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const SizedBox(height: 8),
+                                        Text('Author: ${book.author}'),
+                                        Text('Category: ${book.category}'),
+                                        Text('ISBN: ${book.isbn}'),
+                                        const SizedBox(height: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: book.status.toLowerCase() == 'available'
+                                                ? Colors.green.withOpacity(0.1)
+                                                : Colors.red.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            book.status,
+                                            style: TextStyle(
+                                              color: book.status.toLowerCase() == 'available'
+                                                  ? Colors.green
+                                                  : Colors.red,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    trailing: Text(
+                                      '${book.searchCount} searches',
+                                      style: const TextStyle(
+                                        color: AppTheme.primaryNavy,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

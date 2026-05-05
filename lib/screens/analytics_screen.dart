@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:excel/excel.dart' as excelpkg;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -11,6 +9,7 @@ import '../models/search_request.dart';
 import '../services/book_service.dart';
 import '../services/report_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/export_helper.dart';
 import '../widgets/main_layout.dart';
 
 class AnalyticsScreen extends StatefulWidget {
@@ -154,17 +153,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       if (bytes == null) throw Exception('Failed to encode Excel workbook.');
 
       final fileName = 'UNIMA_Library_Report_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx';
-      final downloadsPath = '${Platform.environment['USERPROFILE']}\\Downloads';
-      final downloadsDir = Directory(downloadsPath);
-      
-      if (!await downloadsDir.exists()) {
-        await downloadsDir.create(recursive: true);
-      }
-      
-      final filePath = '$downloadsPath\\$fileName';
-      final file = File(filePath);
-      await file.writeAsBytes(bytes, flush: true);
-      _showSnack('✓ Excel report saved to:\n$filePath');
+      downloadBytes(bytes, fileName, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      _showSnack('✓ Excel report downloaded: $fileName');
     } catch (error) {
       _showSnack('❌ Report export failed: ${error.toString()}');
     } finally {
@@ -266,17 +256,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       buffer.writeln('</html>');
 
       final fileName = 'UNIMA_Library_Report_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.html';
-      final downloadsPath = '${Platform.environment['USERPROFILE']}\\Downloads';
-      final downloadsDir = Directory(downloadsPath);
-      
-      if (!await downloadsDir.exists()) {
-        await downloadsDir.create(recursive: true);
-      }
-      
-      final filePath = '$downloadsPath\\$fileName';
-      final file = File(filePath);
-      await file.writeAsString(buffer.toString(), flush: true);
-      _showSnack('✓ HTML report saved to:\n$filePath');
+      downloadText(buffer.toString(), fileName, 'text/html');
+      _showSnack('✓ HTML report downloaded: $fileName');
     } catch (error) {
       _showSnack('❌ Report export failed: ${error.toString()}');
     } finally {
@@ -412,17 +393,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
       final bytes = await pdf.save();
       final fileName = 'UNIMA_Library_Report_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.pdf';
-      final downloadsPath = '${Platform.environment['USERPROFILE']}\\Downloads';
-      final downloadsDir = Directory(downloadsPath);
-      
-      if (!await downloadsDir.exists()) {
-        await downloadsDir.create(recursive: true);
-      }
-      
-      final filePath = '$downloadsPath\\$fileName';
-      final file = File(filePath);
-      await file.writeAsBytes(bytes, flush: true);
-      _showSnack('✓ PDF report saved to:\n$filePath');
+      downloadBytes(bytes, fileName, 'application/pdf');
+      _showSnack('✓ PDF report downloaded: $fileName');
     } catch (error) {
       _showSnack('❌ Report export failed: ${error.toString()}');
     } finally {
