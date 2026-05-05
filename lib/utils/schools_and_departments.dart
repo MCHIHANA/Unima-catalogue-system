@@ -30,6 +30,13 @@ class SchoolsAndDepartments {
       'Department of Engineering',
       'Department of Environmental Studies',
     ],
+    'school-of-law-economics-and-governance': [
+      'Department of Law',
+      'Department of Economics',
+      'Department of Public Administration',
+      'Department of Development Studies',
+      'Department of Governance and Public Policy',
+    ],
   };
 
   static List<String> getSchools() {
