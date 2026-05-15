@@ -39,12 +39,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
   int _resourcesCount = 0;
   int _schoolsCount = 0;
 
-  int _targetBooks = 0;       // loaded from Firestore
+  int _targetBooks = 0;       // loaded from Firestore stream
   final int _targetStudents = 8500;
   final int _targetResources = 2300;
   final int _targetSchools = 5;
 
-  bool _statsReady = false;
+  StreamSubscription<QuerySnapshot>? _booksSubscription;
+  Timer? _statsTimer;
 
   @override
   void initState() {
@@ -103,25 +104,26 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
     _fadeController.forward();
     _slideController.forward();
     _scaleController.forward();
-    
-    // Fetch real book count then animate statistics counters
-    Future.delayed(const Duration(milliseconds: 800), () async {
-      try {
-        final snapshot = await FirebaseFirestore.instance.collection('books').get();
-        if (mounted) {
-          setState(() {
-            _targetBooks = snapshot.docs.length;
-            _statsReady = true;
-          });
-          _animateStats();
-        }
-      } catch (_) {
-        // Fallback: animate with 0 books if Firestore unavailable
-        if (mounted) {
-          setState(() => _statsReady = true);
-          _animateStats();
-        }
+
+    // Listen to real-time book count from Firestore
+    _booksSubscription = FirebaseFirestore.instance
+        .collection('books')
+        .snapshots()
+        .listen((snapshot) {
+      if (!mounted) return;
+      final newCount = snapshot.docs.length;
+      if (newCount != _targetBooks) {
+        setState(() {
+          _targetBooks = newCount;
+          // Immediately show the real count (no animation lag for updates)
+          _booksCount = newCount;
+        });
       }
+    });
+
+    // Animate the other static counters after a short delay
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (mounted) _animateStats();
     });
 
     // Start background image rotation
@@ -136,23 +138,19 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
 
   void _animateStats() {
     _statsController.forward();
-    Timer.periodic(const Duration(milliseconds: 30), (timer) {
+    _statsTimer = Timer.periodic(const Duration(milliseconds: 30), (timer) {
       if (!mounted) {
         timer.cancel();
         return;
       }
       
       setState(() {
-        if (_booksCount < _targetBooks) {
-          _booksCount += (_targetBooks / 80).round();
-          if (_booksCount > _targetBooks) _booksCount = _targetBooks;
-        }
         if (_studentsCount < _targetStudents) {
-          _studentsCount += (_targetStudents / 80).round();
+          _studentsCount += (_targetStudents / 80).round().clamp(1, _targetStudents);
           if (_studentsCount > _targetStudents) _studentsCount = _targetStudents;
         }
         if (_resourcesCount < _targetResources) {
-          _resourcesCount += (_targetResources / 80).round();
+          _resourcesCount += (_targetResources / 80).round().clamp(1, _targetResources);
           if (_resourcesCount > _targetResources) _resourcesCount = _targetResources;
         }
         if (_schoolsCount < _targetSchools) {
@@ -160,8 +158,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
           if (_schoolsCount > _targetSchools) _schoolsCount = _targetSchools;
         }
         
-        if (_booksCount >= _targetBooks && 
-            _studentsCount >= _targetStudents && 
+        if (_studentsCount >= _targetStudents && 
             _resourcesCount >= _targetResources &&
             _schoolsCount >= _targetSchools) {
           timer.cancel();
@@ -179,6 +176,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
     _statsController.dispose();
     _graphController.dispose();
     _imageTimer?.cancel();
+    _statsTimer?.cancel();
+    _booksSubscription?.cancel();
     super.dispose();
   }
 
