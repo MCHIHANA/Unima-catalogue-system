@@ -3,8 +3,10 @@ import '../theme/app_theme.dart';
 import '../models/book.dart';
 import '../services/book_service.dart';
 import '../services/report_service.dart';
+import '../utils/schools_and_departments.dart';
 import '../widgets/hierarchical_search_widget.dart';
 import 'login_screen.dart';
+import 'school_books_screen.dart';
 
 class StudentSearchScreen extends StatefulWidget {
   const StudentSearchScreen({super.key});
@@ -252,6 +254,10 @@ class _StudentSearchScreenState extends State<StudentSearchScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 32),
+
+                  // School Navigation Bar
+                  _buildSchoolNavigationBar(isMobile),
                   const SizedBox(height: 24),
 
                   // Advanced School / Department Filters
@@ -588,5 +594,331 @@ class _StudentSearchScreenState extends State<StudentSearchScreen> {
     if (status.contains('RESERVED')) return 'RESERVED';
     if (status.contains('UNAVAILABLE')) return 'UNAVAILABLE';
     return status;
+  }
+
+  Widget _buildSchoolNavigationBar(bool isMobile) {
+    final schools = SchoolsAndDepartments.getSchools();
+    final screenWidth = MediaQuery.of(context).size.width;
+    
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentGold.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.school_rounded,
+                    color: AppTheme.accentGold,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Browse by School',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: AppTheme.textDark,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Select a school to view all available books',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textGrey,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Calculate card width based on screen size
+                // For mobile: 2 cards per row, for tablet: 3 cards, for desktop: 5 cards
+                int cardsPerRow;
+                if (screenWidth < 600) {
+                  cardsPerRow = 2; // Mobile
+                } else if (screenWidth < 900) {
+                  cardsPerRow = 3; // Tablet
+                } else if (screenWidth < 1200) {
+                  cardsPerRow = 4; // Small desktop
+                } else {
+                  cardsPerRow = 5; // Large desktop - all 5 schools in one row
+                }
+                
+                // Calculate card width with proper spacing
+                final totalSpacing = (cardsPerRow - 1) * 16.0; // 16px gap between cards
+                final cardWidth = (constraints.maxWidth - totalSpacing) / cardsPerRow;
+                
+                return Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
+                  alignment: WrapAlignment.spaceBetween,
+                  children: schools.map((school) {
+                    final schoolName = SchoolsAndDepartments.formatSchoolName(school);
+                    final icon = _getSchoolIcon(school);
+                    
+                    return SizedBox(
+                      width: cardWidth,
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => SchoolBooksScreen(
+                                schoolId: school,
+                                schoolName: schoolName,
+                              ),
+                            ),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                AppTheme.primaryNavy,
+                                AppTheme.primaryNavy.withOpacity(0.9),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: AppTheme.accentGold.withOpacity(0.5),
+                              width: 2,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.primaryNavy.withOpacity(0.3),
+                                blurRadius: 15,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.accentGold.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: AppTheme.accentGold.withOpacity(0.5),
+                                    width: 2,
+                                  ),
+                                ),
+                                child: Icon(
+                                  icon,
+                                  color: AppTheme.accentGold,
+                                  size: 36,
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              Text(
+                                schoolName,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: AppTheme.accentGold,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.3,
+                                  height: 1.3,
+                                ),
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 10),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.accentGold.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: AppTheme.accentGold.withOpacity(0.5),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'Explore',
+                                      style: TextStyle(
+                                        color: AppTheme.accentGold,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Icon(
+                                      Icons.arrow_forward_rounded,
+                                      color: AppTheme.accentGold,
+                                      size: 16,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getSchoolIcon(String school) {
+    if (school.contains('education')) return Icons.school_rounded;
+    if (school.contains('arts')) return Icons.palette_rounded;
+    if (school.contains('humanities')) return Icons.history_edu_rounded;
+    if (school.contains('science')) return Icons.science_rounded;
+    if (school.contains('law')) return Icons.gavel_rounded;
+    return Icons.school_rounded;
+  }
+
+  Color _getSchoolColor(String school) {
+    if (school.contains('education')) return const Color(0xFF10B981);
+    if (school.contains('arts')) return const Color(0xFFEC4899);
+    if (school.contains('humanities')) return const Color(0xFF8B5CF6);
+    if (school.contains('science')) return const Color(0xFF3B82F6);
+    if (school.contains('law')) return const Color(0xFFF59E0B);
+    return AppTheme.primaryNavy;
+  }
+
+  Widget _buildSchoolBooks(List<Book> books, String school, bool isMobile) {
+    final schoolName = SchoolsAndDepartments.formatSchoolName(school);
+    final color = _getSchoolColor(school);
+    
+    if (books.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(48),
+        child: Column(
+          children: [
+            Icon(
+              Icons.library_books_outlined,
+              size: 80,
+              color: Colors.grey.shade300,
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'No books available in $schoolName',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textDark,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Check back later for new additions',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [color.withOpacity(0.1), color.withOpacity(0.05)],
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withOpacity(0.3)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  _getSchoolIcon(school),
+                  color: color,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      schoolName,
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: color,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${books.length} ${books.length == 1 ? 'book' : 'books'} available',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.textGrey,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        ...books.map((book) => _buildBookCard(book, isMobile)),
+      ],
+    );
   }
 }
