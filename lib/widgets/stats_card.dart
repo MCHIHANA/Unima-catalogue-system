@@ -28,10 +28,15 @@ class StatsCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: hasBorder ? Border.all(color: AppTheme.accentGold.withOpacity(0.2), width: 1.5) : null,
+        border: Border(
+          left: const BorderSide(color: AppTheme.accentGold, width: 4),
+          top: hasBorder ? BorderSide(color: AppTheme.accentGold.withOpacity(0.2), width: 1.5) : BorderSide.none,
+          right: hasBorder ? BorderSide(color: AppTheme.accentGold.withOpacity(0.2), width: 1.5) : BorderSide.none,
+          bottom: hasBorder ? BorderSide(color: AppTheme.accentGold.withOpacity(0.2), width: 1.5) : BorderSide.none,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: AppTheme.primaryNavy.withOpacity(0.06),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -44,7 +49,7 @@ class StatsCard extends StatelessWidget {
               right: 0,
               top: 0,
               child: Opacity(
-                opacity: 0.1,
+                opacity: 0.08,
                 child: trailingIcon!,
               ),
             ),
@@ -54,7 +59,7 @@ class StatsCard extends StatelessWidget {
               Text(
                 title.toUpperCase(),
                 style: const TextStyle(
-                  color: AppTheme.textGrey,
+                  color: AppTheme.accentGold,
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.5,

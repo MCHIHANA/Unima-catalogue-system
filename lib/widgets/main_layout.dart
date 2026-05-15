@@ -74,7 +74,9 @@ class _MainLayoutState extends State<MainLayout> {
       padding: const EdgeInsets.symmetric(horizontal: 40),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFF1F3F9))),
+        border: Border(
+          bottom: BorderSide(color: AppTheme.accentGold, width: 3),
+        ),
       ),
       child: Row(
         children: [
@@ -186,7 +188,7 @@ class _MainLayoutState extends State<MainLayout> {
               ),
               if (isActive) ...[
                 const SizedBox(height: 4),
-                Container(height: 3, width: 30, color: AppTheme.primaryNavy),
+                Container(height: 3, width: 30, color: AppTheme.accentGold),
               ],
             ],
           ),
@@ -200,7 +202,16 @@ class _MainLayoutState extends State<MainLayout> {
       child: Column(
         children: [
           DrawerHeader(
-            decoration: const BoxDecoration(color: AppTheme.primaryNavy),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [AppTheme.primaryNavy, const Color(0xFF0D1147)],
+              ),
+              border: const Border(
+                bottom: BorderSide(color: AppTheme.accentGold, width: 3),
+              ),
+            ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [

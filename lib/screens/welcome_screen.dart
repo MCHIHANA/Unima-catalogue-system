@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme/app_theme.dart';
 import 'student_search_screen.dart';
 import 'login_screen.dart';
@@ -38,10 +39,12 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
   int _resourcesCount = 0;
   int _schoolsCount = 0;
 
-  final int _targetBooks = 15000;
+  int _targetBooks = 0;       // loaded from Firestore
   final int _targetStudents = 8500;
   final int _targetResources = 2300;
   final int _targetSchools = 5;
+
+  bool _statsReady = false;
 
   @override
   void initState() {
@@ -101,9 +104,24 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
     _slideController.forward();
     _scaleController.forward();
     
-    // Animate statistics counters
-    Future.delayed(const Duration(milliseconds: 800), () {
-      _animateStats();
+    // Fetch real book count then animate statistics counters
+    Future.delayed(const Duration(milliseconds: 800), () async {
+      try {
+        final snapshot = await FirebaseFirestore.instance.collection('books').get();
+        if (mounted) {
+          setState(() {
+            _targetBooks = snapshot.docs.length;
+            _statsReady = true;
+          });
+          _animateStats();
+        }
+      } catch (_) {
+        // Fallback: animate with 0 books if Firestore unavailable
+        if (mounted) {
+          setState(() => _statsReady = true);
+          _animateStats();
+        }
+      }
     });
 
     // Start background image rotation
@@ -372,6 +390,99 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                           ),
                         ),
                       ),
+                      const SizedBox(height: 40),
+
+                      // Action Cards with hover effect
+                      Container(
+                        constraints: const BoxConstraints(maxWidth: 900),
+                        child: isMobile
+                            ? Column(
+                                children: [
+                                  _buildActionCard(
+                                    context,
+                                    icon: Icons.search_rounded,
+                                    title: 'Search Books',
+                                    description: 'Explore our digital catalogue',
+                                    color: AppTheme.primaryNavy,
+                                    gradient: LinearGradient(
+                                      colors: [AppTheme.primaryNavy, AppTheme.primaryNavy.withOpacity(0.8)],
+                                    ),
+                                    onTap: () {
+                                      Navigator.pushReplacement(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const StudentSearchScreen(),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(height: 20),
+                                  _buildActionCard(
+                                    context,
+                                    icon: Icons.admin_panel_settings_rounded,
+                                    title: 'Admin Login',
+                                    description: 'Manage library resources',
+                                    color: AppTheme.accentGold,
+                                    gradient: LinearGradient(
+                                      colors: [AppTheme.accentGold, const Color(0xFFD4A017)],
+                                    ),
+                                    onTap: () {
+                                      Navigator.pushReplacement(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const LoginScreen(),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              )
+                            : Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildActionCard(
+                                      context,
+                                      icon: Icons.search_rounded,
+                                      title: 'Search Books',
+                                      description: 'Explore our digital catalogue',
+                                      color: AppTheme.primaryNavy,
+                                      gradient: LinearGradient(
+                                        colors: [AppTheme.primaryNavy, AppTheme.primaryNavy.withOpacity(0.8)],
+                                      ),
+                                      onTap: () {
+                                        Navigator.pushReplacement(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => const StudentSearchScreen(),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 32),
+                                  Expanded(
+                                    child: _buildActionCard(
+                                      context,
+                                      icon: Icons.admin_panel_settings_rounded,
+                                      title: 'Admin Login',
+                                      description: 'Manage library resources',
+                                      color: AppTheme.accentGold,
+                                      gradient: LinearGradient(
+                                        colors: [AppTheme.accentGold, const Color(0xFFD4A017)],
+                                      ),
+                                      onTap: () {
+                                        Navigator.pushReplacement(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => const LoginScreen(),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
                       const SizedBox(height: 60),
 
                       // Statistics Section with Animated Counters
@@ -495,6 +606,51 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                                   ),
                           ],
                         ),
+                      ),
+                      const SizedBox(height: 50),
+
+                      // Library Showcase Images Section
+                      Container(
+                        constraints: const BoxConstraints(maxWidth: 1200),
+                        child: isMobile
+                            ? Column(
+                                children: [
+                                  _buildImageShowcase(
+                                    'assets/images/books.png',
+                                    'Extensive Book Collection',
+                                    'Thousands of academic resources at your fingertips',
+                                    isMobile,
+                                  ),
+                                  const SizedBox(height: 20),
+                                  _buildImageShowcase(
+                                    'assets/images/image2.jpg',
+                                    'Modern Library Facilities',
+                                    'State-of-the-art study spaces and digital resources',
+                                    isMobile,
+                                  ),
+                                ],
+                              )
+                            : Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildImageShowcase(
+                                      'assets/images/books.png',
+                                      'Extensive Book Collection',
+                                      'Thousands of academic resources at your fingertips',
+                                      isMobile,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 24),
+                                  Expanded(
+                                    child: _buildImageShowcase(
+                                      'assets/images/image2.jpg',
+                                      'Modern Library Facilities',
+                                      'State-of-the-art study spaces and digital resources',
+                                      isMobile,
+                                    ),
+                                  ),
+                                ],
+                              ),
                       ),
                       const SizedBox(height: 50),
 
@@ -681,99 +837,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                             ),
                           ],
                         ),
-                      ),
-                      const SizedBox(height: 60),
-
-                      // Action Cards with hover effect
-                      Container(
-                        constraints: const BoxConstraints(maxWidth: 900),
-                        child: isMobile
-                            ? Column(
-                                children: [
-                                  _buildActionCard(
-                                    context,
-                                    icon: Icons.search_rounded,
-                                    title: 'Search Books',
-                                    description: 'Explore our digital catalogue',
-                                    color: AppTheme.primaryNavy,
-                                    gradient: LinearGradient(
-                                      colors: [AppTheme.primaryNavy, AppTheme.primaryNavy.withOpacity(0.8)],
-                                    ),
-                                    onTap: () {
-                                      Navigator.pushReplacement(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => const StudentSearchScreen(),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                  const SizedBox(height: 20),
-                                  _buildActionCard(
-                                    context,
-                                    icon: Icons.admin_panel_settings_rounded,
-                                    title: 'Admin Portal',
-                                    description: 'Manage library resources',
-                                    color: AppTheme.accentGold,
-                                    gradient: LinearGradient(
-                                      colors: [AppTheme.accentGold, const Color(0xFFD4A017)],
-                                    ),
-                                    onTap: () {
-                                      Navigator.pushReplacement(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => const LoginScreen(),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ],
-                              )
-                            : Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildActionCard(
-                                      context,
-                                      icon: Icons.search_rounded,
-                                      title: 'Search Books',
-                                      description: 'Explore our digital catalogue',
-                                      color: AppTheme.primaryNavy,
-                                      gradient: LinearGradient(
-                                        colors: [AppTheme.primaryNavy, AppTheme.primaryNavy.withOpacity(0.8)],
-                                      ),
-                                      onTap: () {
-                                        Navigator.pushReplacement(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => const StudentSearchScreen(),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 32),
-                                  Expanded(
-                                    child: _buildActionCard(
-                                      context,
-                                      icon: Icons.admin_panel_settings_rounded,
-                                      title: 'Librarian Portal',
-                                      description: 'Manage library resources',
-                                      color: AppTheme.accentGold,
-                                      gradient: LinearGradient(
-                                        colors: [AppTheme.accentGold, const Color(0xFFD4A017)],
-                                      ),
-                                      onTap: () {
-                                        Navigator.pushReplacement(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => const LoginScreen(),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
                       ),
                       const SizedBox(height: 60),
 
@@ -1081,6 +1144,148 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildImageShowcase(
+    String imagePath,
+    String title,
+    String description,
+    bool isMobile,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryNavy.withOpacity(0.3),
+            blurRadius: 30,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Stack(
+          children: [
+            // Image
+            AspectRatio(
+              aspectRatio: isMobile ? 1.2 : 1.5,
+              child: Image.asset(
+                imagePath,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  color: AppTheme.primaryNavy.withOpacity(0.1),
+                  child: Center(
+                    child: Icon(
+                      Icons.image_rounded,
+                      size: 80,
+                      color: AppTheme.primaryNavy.withOpacity(0.3),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // Gradient Overlay
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withOpacity(0.8),
+                    ],
+                    stops: const [0.4, 1.0],
+                  ),
+                ),
+              ),
+            ),
+            // Text Content
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                padding: EdgeInsets.all(isMobile ? 20 : 28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.accentGold,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'FEATURED',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                          color: AppTheme.primaryNavy,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: isMobile ? 20 : 24,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        letterSpacing: 0.5,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black.withOpacity(0.5),
+                            offset: const Offset(0, 2),
+                            blurRadius: 4,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      description,
+                      style: TextStyle(
+                        fontSize: isMobile ? 13 : 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white.withOpacity(0.95),
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Decorative Corner
+            Positioned(
+              top: 16,
+              right: 16,
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.accentGold.withOpacity(0.9),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.accentGold.withOpacity(0.5),
+                      blurRadius: 15,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.auto_stories_rounded,
+                  color: AppTheme.primaryNavy,
+                  size: isMobile ? 20 : 24,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

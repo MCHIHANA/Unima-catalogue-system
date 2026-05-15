@@ -161,15 +161,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               Row(
                                 children: [
                                   Expanded(
-                                    child: Text(
-                                      'Welcome, Librarian',
-                                      style: TextStyle(
-                                        fontSize: isMobile ? 24 : 32,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.textDark,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                      maxLines: 1,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Welcome, Librarian',
+                                          style: TextStyle(
+                                            fontSize: isMobile ? 24 : 32,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppTheme.primaryNavy,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 1,
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Container(
+                                          height: 3,
+                                          width: 60,
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              colors: [AppTheme.accentGold, AppTheme.accentGold.withOpacity(0.3)],
+                                            ),
+                                            borderRadius: BorderRadius.circular(2),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                   const SizedBox(width: 16),
@@ -218,8 +234,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 style: TextStyle(fontSize: isMobile ? 12 : 14, color: AppTheme.textGrey),
                                 overflow: TextOverflow.ellipsis,
                                 maxLines: 2,
-                              ),
-                              const SizedBox(height: 32),
+                              ),                              const SizedBox(height: 32),
                               _buildTopStats(books.length, totalSearches, mostSearched, isMobile),
                               const SizedBox(height: 32),
                               if (isMobile || isTablet)
@@ -262,7 +277,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       padding: EdgeInsets.symmetric(horizontal: isMobile ? 16.0 : 32.0, vertical: 16),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFF1F3F9))),
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFF1F3F9)),
+          top: BorderSide(color: AppTheme.accentGold, width: 3),
+        ),
       ),
       child: Row(
         children: [

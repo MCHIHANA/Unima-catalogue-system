@@ -18,20 +18,44 @@ class SchoolBooksScreen extends StatefulWidget {
   State<SchoolBooksScreen> createState() => _SchoolBooksScreenState();
 }
 
-class _SchoolBooksScreenState extends State<SchoolBooksScreen> {
+class _SchoolBooksScreenState extends State<SchoolBooksScreen> with SingleTickerProviderStateMixin {
   final BookService _bookService = BookService();
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  late TabController _tabController;
+  bool _isLawEconomicsSchool = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _isLawEconomicsSchool = widget.schoolId == 'school-of-law-economics-and-governance';
+    _tabController = TabController(
+      length: _isLawEconomicsSchool ? 2 : 1,
+      vsync: this,
+    );
+    // Listen for tab changes to rebuild the UI
+    _tabController.addListener(() {
+      setState(() {});
+    });
+  }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _tabController.dispose();
     super.dispose();
   }
 
-  List<Book> _filterBooks(List<Book> books) {
+  List<Book> _filterBooks(List<Book> books, {String? departmentFilter}) {
     // Filter by school
     var schoolBooks = books.where((book) => book.school == widget.schoolId).toList();
+    
+    // If this is the Law, Economics and Governance school, filter by department
+    if (_isLawEconomicsSchool && departmentFilter != null) {
+      schoolBooks = schoolBooks.where((book) {
+        return book.department.toLowerCase().contains(departmentFilter.toLowerCase());
+      }).toList();
+    }
     
     // Apply search if any
     if (_searchQuery.isNotEmpty) {
@@ -191,7 +215,51 @@ class _SchoolBooksScreenState extends State<SchoolBooksScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
+
+                  // Tab bar for Law & Economics school
+                  if (_isLawEconomicsSchool)
+                    Column(
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.04),
+                                blurRadius: 10,
+                              ),
+                            ],
+                          ),
+                          child: TabBar(
+                            controller: _tabController,
+                            indicatorColor: AppTheme.primaryNavy,
+                            labelColor: AppTheme.primaryNavy,
+                            unselectedLabelColor: AppTheme.textGrey,
+                            labelStyle: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                            ),
+                            unselectedLabelStyle: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                            ),
+                            tabs: const [
+                              Tab(
+                                text: 'Law',
+                                icon: Icon(Icons.gavel_rounded, size: 20),
+                              ),
+                              Tab(
+                                text: 'Economics',
+                                icon: Icon(Icons.trending_up_rounded, size: 20),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                    ),
 
                   // Books List
                   StreamBuilder<List<Book>>(
@@ -210,7 +278,19 @@ class _SchoolBooksScreenState extends State<SchoolBooksScreen> {
                         return _buildEmptyState();
                       }
 
-                      final filteredBooks = _filterBooks(snapshot.data!);
+                      // Handle both regular schools and Law & Economics school
+                      late List<Book> filteredBooks;
+                      if (_isLawEconomicsSchool) {
+                        if (_tabController.index == 0) {
+                          // Law tab
+                          filteredBooks = _filterBooks(snapshot.data!, departmentFilter: 'Law');
+                        } else {
+                          // Economics tab
+                          filteredBooks = _filterBooks(snapshot.data!, departmentFilter: 'Economics');
+                        }
+                      } else {
+                        filteredBooks = _filterBooks(snapshot.data!);
+                      }
 
                       if (filteredBooks.isEmpty) {
                         return _buildNoResults();

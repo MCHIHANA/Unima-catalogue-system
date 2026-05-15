@@ -92,12 +92,12 @@ class _LoginScreenState extends State<LoginScreen> {
     final cardWidth = isDesktop ? 480.0 : size.width - horizontalPadding;
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundLight,
+      backgroundColor: AppTheme.primaryNavy,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppTheme.primaryNavy),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
             Navigator.pushReplacement(
               context,
@@ -106,266 +106,319 @@ class _LoginScreenState extends State<LoginScreen> {
           },
         ),
       ),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.symmetric(vertical: 40, horizontal: horizontalPadding),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // ─── Logo & Header ───────────────────────────────────────────
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20)
-                    ]
-                  ),
-                  child: Image.asset(
-                    'assets/images/unima_logo.jpg',
-                    height: 110,
-                    width: 110,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) => const Icon(
-                      Icons.account_balance_rounded,
-                      size: 80,
-                      color: AppTheme.primaryNavy,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 28),
-                const Text(
-                  'UNIVERSITY OF MALAWI',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.5,
-                    color: AppTheme.textDark,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  height: 4,
-                  width: 100,
-                  decoration: BoxDecoration(
-                    color: AppTheme.accentGold,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'LIBRARY CATALOGUE RESERVE SYSTEM',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.2,
-                    color: AppTheme.textGrey,
-                  ),
-                ),
-                const SizedBox(height: 48),
-
-                // ─── Login Card ──────────────────────────────────────────────
-                Container(
-                  width: cardWidth,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.06),
-                        blurRadius: 40,
-                        offset: const Offset(0, 20),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      // Top Gold Accent Border
-                      Container(
-                        height: 6,
-                        decoration: const BoxDecoration(
-                          color: AppTheme.accentGold,
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(16),
-                            topRight: Radius.circular(16),
+      body: Stack(
+        children: [
+          // Blue/gold gradient background
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppTheme.primaryNavy,
+                  const Color(0xFF0D1147),
+                  AppTheme.primaryNavy,
+                ],
+                stops: const [0.0, 0.5, 1.0],
+              ),
+            ),
+          ),
+          // Decorative gold circle top-right
+          Positioned(
+            top: -80,
+            right: -80,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppTheme.accentGold.withOpacity(0.12),
+              ),
+            ),
+          ),
+          // Decorative gold circle bottom-left
+          Positioned(
+            bottom: -100,
+            left: -60,
+            child: Container(
+              width: 280,
+              height: 280,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppTheme.accentGold.withOpacity(0.08),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.symmetric(vertical: 40, horizontal: horizontalPadding),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // ─── Logo & Header ───────────────────────────────────────────
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.accentGold.withOpacity(0.4),
+                            blurRadius: 30,
+                            spreadRadius: 4,
                           ),
+                        ],
+                      ),
+                      child: Image.asset(
+                        'assets/images/unima_logo.jpg',
+                        height: 110,
+                        width: 110,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) => const Icon(
+                          Icons.account_balance_rounded,
+                          size: 80,
+                          color: AppTheme.primaryNavy,
                         ),
                       ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 48),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Administrator Login',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w900,
-                                color: AppTheme.primaryNavy,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Please authenticate with your Firebase-registered email and password to access the console.',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey.shade600,
-                                height: 1.5,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 36),
+                    ),
+                    const SizedBox(height: 28),
+                    const Text(
+                      'UNIVERSITY OF MALAWI',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.5,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      height: 4,
+                      width: 100,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [AppTheme.accentGold, AppTheme.accentGold.withOpacity(0.4)],
+                        ),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'LIBRARY CATALOGUE RESERVE SYSTEM',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.2,
+                        color: Colors.white.withOpacity(0.75),
+                      ),
+                    ),
+                    const SizedBox(height: 48),
 
-                            // Email Field
-                            _buildLabel('Email Address'),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: _emailController,
-                              keyboardType: TextInputType.emailAddress,
-                              style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textDark),
-                              decoration: InputDecoration(
-                                hintText: 'admin@unima.ac.mw',
-                                hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14, fontWeight: FontWeight.w500),
-                                prefixIcon: const Icon(Icons.email_outlined, size: 22, color: AppTheme.primaryNavy),
-                                filled: true,
-                                fillColor: const Color(0xFFF9FAFB),
-                                contentPadding: const EdgeInsets.symmetric(vertical: 18),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
-                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
-                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.primaryNavy, width: 2)),
+                    // ─── Login Card ──────────────────────────────────────────────
+                    Container(
+                      width: cardWidth,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.25),
+                            blurRadius: 40,
+                            offset: const Offset(0, 20),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          // Top Gold Accent Border
+                          Container(
+                            height: 6,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [AppTheme.accentGold, const Color(0xFFD4A017)],
+                              ),
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(16),
+                                topRight: Radius.circular(16),
                               ),
                             ),
-                            const SizedBox(height: 24),
-
-                            // Password Field
-                            _buildLabel('Password'),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: _passwordController,
-                              obscureText: _obscurePassword,
-                              style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textDark),
-                              decoration: InputDecoration(
-                                hintText: '••••••••',
-                                hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-                                prefixIcon: const Icon(Icons.lock_outline_rounded, size: 22, color: AppTheme.primaryNavy),
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                                    color: Colors.grey.shade500,
-                                    size: 20,
-                                  ),
-                                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                                ),
-                                filled: true,
-                                fillColor: const Color(0xFFF9FAFB),
-                                contentPadding: const EdgeInsets.symmetric(vertical: 18),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
-                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
-                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.primaryNavy, width: 2)),
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-
-                            // Remember & Forgot Password
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 48),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                const Text(
+                                  'Administrator Login',
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w900,
+                                    color: AppTheme.primaryNavy,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Please authenticate with your Firebase-registered email and password to access the console.',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey.shade600,
+                                    height: 1.5,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 36),
+
+                                // Email Field
+                                _buildLabel('Email Address'),
+                                const SizedBox(height: 8),
+                                TextField(
+                                  controller: _emailController,
+                                  keyboardType: TextInputType.emailAddress,
+                                  style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textDark),
+                                  decoration: InputDecoration(
+                                    hintText: 'admin@unima.ac.mw',
+                                    hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14, fontWeight: FontWeight.w500),
+                                    prefixIcon: const Icon(Icons.email_outlined, size: 22, color: AppTheme.primaryNavy),
+                                    filled: true,
+                                    fillColor: const Color(0xFFF9FAFB),
+                                    contentPadding: const EdgeInsets.symmetric(vertical: 18),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.primaryNavy, width: 2)),
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+
+                                // Password Field
+                                _buildLabel('Password'),
+                                const SizedBox(height: 8),
+                                TextField(
+                                  controller: _passwordController,
+                                  obscureText: _obscurePassword,
+                                  style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textDark),
+                                  decoration: InputDecoration(
+                                    hintText: '••••••••',
+                                    hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                                    prefixIcon: const Icon(Icons.lock_outline_rounded, size: 22, color: AppTheme.primaryNavy),
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                                        color: Colors.grey.shade500,
+                                        size: 20,
+                                      ),
+                                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                                    ),
+                                    filled: true,
+                                    fillColor: const Color(0xFFF9FAFB),
+                                    contentPadding: const EdgeInsets.symmetric(vertical: 18),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.primaryNavy, width: 2)),
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+
+                                // Remember & Forgot Password
                                 Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    SizedBox(
-                                      height: 24,
-                                      width: 24,
-                                      child: Checkbox(
-                                        value: _rememberDevice,
-                                        onChanged: (value) => setState(() => _rememberDevice = value ?? false),
-                                        activeColor: AppTheme.primaryNavy,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                    Row(
+                                      children: [
+                                        SizedBox(
+                                          height: 24,
+                                          width: 24,
+                                          child: Checkbox(
+                                            value: _rememberDevice,
+                                            onChanged: (value) => setState(() => _rememberDevice = value ?? false),
+                                            activeColor: AppTheme.primaryNavy,
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        const Text('Remember me', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textGrey)),
+                                      ],
+                                    ),
+                                    TextButton(
+                                      onPressed: () {},
+                                      child: const Text(
+                                        'Recover Password',
+                                        style: TextStyle(
+                                          color: AppTheme.accentGold,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w800,
+                                        ),
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    const Text('Remember me', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textGrey)),
                                   ],
                                 ),
-                                TextButton(
-                                  onPressed: () {},
-                                  child: const Text(
-                                    'Recover Password',
-                                    style: TextStyle(
-                                      color: AppTheme.accentGold,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w800,
+                                const SizedBox(height: 32),
+
+                                // Sign In Button
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    onPressed: _isLoading ? null : _handleLogin,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.primaryNavy,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 18),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      elevation: 0,
                                     ),
+                                    child: _isLoading 
+                                      ? const SizedBox(
+                                          height: 20, 
+                                          width: 20, 
+                                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                        )
+                                      : const Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Text(
+                                              'SIGN IN',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w900,
+                                                fontSize: 15,
+                                                letterSpacing: 1.2,
+                                              ),
+                                            ),
+                                            SizedBox(width: 10),
+                                            Icon(Icons.arrow_forward_rounded, size: 20),
+                                          ],
+                                        ),
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 32),
-
-                            // Sign In Button
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: _isLoading ? null : _handleLogin,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.primaryNavy,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 18),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                  elevation: 0,
-                                ),
-                                child: _isLoading 
-                                  ? const SizedBox(
-                                      height: 20, 
-                                      width: 20, 
-                                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                    )
-                                  : const Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          'SIGN IN',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w900,
-                                            fontSize: 15,
-                                            letterSpacing: 1.2,
-                                          ),
-                                        ),
-                                        SizedBox(width: 10),
-                                        Icon(Icons.arrow_forward_rounded, size: 20),
-                                      ],
-                                    ),
-                              ),
-                            ),
-                          ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 48),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.security_rounded, size: 14, color: Colors.white.withOpacity(0.6)),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Secure Institutional Authentication',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white.withOpacity(0.6),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 48),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.security_rounded, size: 14, color: AppTheme.textGrey),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Secure Institutional Authentication',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textGrey.withValues(alpha: 0.8),
-                      ),
+                      ],
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
