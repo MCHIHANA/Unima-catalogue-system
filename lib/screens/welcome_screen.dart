@@ -419,7 +419,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                                   _buildActionCard(
                                     context,
                                     icon: Icons.admin_panel_settings_rounded,
-                                    title: 'Admin Login',
+                                    title: 'Librarian Login',
                                     description: 'Manage library resources',
                                     color: AppTheme.accentGold,
                                     gradient: LinearGradient(

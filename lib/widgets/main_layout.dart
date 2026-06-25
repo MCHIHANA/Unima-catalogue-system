@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/app_theme.dart';
 import '../screens/dashboard_screen.dart';
 import '../screens/manage_books_screen.dart';
 import '../screens/analytics_screen.dart';
+import '../screens/audit_logs_screen.dart';
 import '../screens/add_book_screen.dart';
+import '../models/user_profile.dart';
 
 class MainLayout extends StatefulWidget {
   final Widget child;
@@ -70,6 +73,12 @@ class _MainLayoutState extends State<MainLayout> {
   }
 
   Widget _buildTopNav(BuildContext context) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final userEmail = currentUser?.email ?? '';
+    final userName = getUserDisplayName(userEmail);
+    final userDepartment = getUserDepartment(userEmail);
+    final isSuperUserFlag = isSuperUser(userEmail);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 40),
       decoration: const BoxDecoration(
@@ -120,6 +129,11 @@ class _MainLayoutState extends State<MainLayout> {
           _buildNavLink('Manage Books', widget.currentRoute == 'ManageBooks', () {
             Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ManageBooksScreen()));
           }),
+          // Audit Logs - Only for super users
+          if (isSuperUserFlag)
+            _buildNavLink('Audit Logs', widget.currentRoute == 'Audit Logs', () {
+              Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AuditLogsScreen()));
+            }),
           const SizedBox(width: 20),
           // ADD NEW BOOK Button — properly wired
           ElevatedButton.icon(
@@ -144,15 +158,15 @@ class _MainLayoutState extends State<MainLayout> {
               Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.end,
-                children: const [
+                children: [
                   Text(
-                    'Administrator',
-                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AppTheme.textDark),
+                    userName,
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AppTheme.textDark),
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    'Library Services',
-                    style: TextStyle(fontSize: 11, color: AppTheme.textGrey, fontWeight: FontWeight.w500),
+                    userDepartment,
+                    style: const TextStyle(fontSize: 11, color: AppTheme.textGrey, fontWeight: FontWeight.w500),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -198,6 +212,12 @@ class _MainLayoutState extends State<MainLayout> {
   }
 
   Widget _buildDrawer(BuildContext context) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final userEmail = currentUser?.email ?? '';
+    final userName = getUserDisplayName(userEmail);
+    final userDepartment = getUserDepartment(userEmail);
+    final isSuperUserFlag = isSuperUser(userEmail);
+
     return Drawer(
       child: Column(
         children: [
@@ -212,16 +232,51 @@ class _MainLayoutState extends State<MainLayout> {
                 bottom: BorderSide(color: AppTheme.accentGold, width: 3),
               ),
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Image.asset('assets/images/unima_logo.jpg', height: 40),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    'UNIMA LIBRARY',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                    overflow: TextOverflow.ellipsis,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Image.asset('assets/images/unima_logo.jpg', height: 40),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'UNIMA LIBRARY',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        userName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        userDepartment,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 11,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -248,6 +303,15 @@ class _MainLayoutState extends State<MainLayout> {
             selectedColor: AppTheme.primaryNavy,
             onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ManageBooksScreen())),
           ),
+          // Audit Logs - Only for super users
+          if (isSuperUserFlag)
+            ListTile(
+              leading: const Icon(Icons.history_rounded),
+              title: const Text('Audit Logs'),
+              selected: widget.currentRoute == 'Audit Logs',
+              selectedColor: AppTheme.primaryNavy,
+              onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AuditLogsScreen())),
+            ),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.add_circle_outline_rounded, color: AppTheme.accentGold),

@@ -5,7 +5,7 @@ import '../theme/app_theme.dart';
 import '../utils/export_helper.dart';
 import '../widgets/stats_card.dart';
 import '../widgets/main_layout.dart';
-import 'package:fl_chart/fl_chart.dart';
+import '../services/audit_service.dart';
 import 'manage_books_screen.dart';
 import 'student_search_screen.dart';
 import '../models/book.dart';
@@ -21,6 +21,7 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   bool _isExporting = false;
   final TextEditingController _searchController = TextEditingController();
+  final AuditService _auditService = AuditService();
   List<Book> _allBooks = [];
   List<Book> _filteredBooks = [];
   bool _showSearchResults = false;
@@ -77,6 +78,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
 
     if (confirm == true) {
+      final user = FirebaseAuth.instance.currentUser;
+      
+      // Log the logout activity
+      if (user != null) {
+        await _auditService.logUserLogout(
+          userId: user.uid,
+          userEmail: user.email ?? 'unknown',
+        );
+      }
+
       await FirebaseAuth.instance.signOut();
       if (mounted) {
         Navigator.pushAndRemoveUntil(

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/app_theme.dart';
+import '../services/audit_service.dart';
+import '../models/activity_log.dart';
 import 'dashboard_screen.dart';
 import 'welcome_screen.dart';
 
@@ -18,6 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final AuditService _auditService = AuditService();
 
   @override
   void dispose() {
@@ -46,10 +49,25 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
+
+      // Log successful access
+      await _auditService.logUserAccess(
+        userId: userCredential.user!.uid,
+        userEmail: email,
+      );
+
+      // Log user login activity
+      await _auditService.logActivity(
+        userId: userCredential.user!.uid,
+        userEmail: email,
+        activityType: ActivityType.userLoggedIn,
+        description: '$email successfully logged into the system',
+      );
+
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
@@ -57,6 +75,13 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
+      
+      // Log failed login attempt
+      await _auditService.logFailedLogin(
+        userEmail: email,
+        failureReason: e.code,
+      );
+
       setState(() {
         _isLoading = false;
       });
@@ -69,6 +94,13 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     } catch (e) {
       if (!mounted) return;
+      
+      // Log unexpected error during login
+      await _auditService.logFailedLogin(
+        userEmail: email,
+        failureReason: 'Unexpected error: ${e.toString()}',
+      );
+
       setState(() {
         _isLoading = false;
       });

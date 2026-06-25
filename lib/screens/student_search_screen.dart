@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/book.dart';
@@ -27,9 +28,33 @@ class _StudentSearchScreenState extends State<StudentSearchScreen> {
   final Set<String> _searchedBookIds = {}; // Track which books have been counted
   String _lastLoggedQuery = '';
 
+  // Background image rotation
+  int _currentImageIndex = 0;
+  final List<String> _backgroundImages = [
+    'assets/images/books.png',
+    'assets/images/image2.jpg',
+    'assets/images/books22.avif',
+    'assets/images/Library-Shelving-1.jpg',
+  ];
+  Timer? _imageTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Start background image rotation every 5 seconds
+    _imageTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (mounted) {
+        setState(() {
+          _currentImageIndex = (_currentImageIndex + 1) % _backgroundImages.length;
+        });
+      }
+    });
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
+    _imageTimer?.cancel();
     super.dispose();
   }
 
@@ -102,71 +127,88 @@ class _StudentSearchScreenState extends State<StudentSearchScreen> {
             pinned: true,
             backgroundColor: AppTheme.primaryNavy,
             flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppTheme.primaryNavy,
-                      AppTheme.primaryNavy.withValues(alpha: 0.8),
-                    ],
-                  ),
-                ),
-                child: SafeArea(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isMobile ? 20 : 40,
-                      vertical: 20,
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Image.asset(
-                              'assets/images/unima_logo.jpg',
-                              height: isMobile ? 40 : 50,
-                              errorBuilder: (context, error, stackTrace) => Icon(
-                                Icons.account_balance_rounded,
-                                size: isMobile ? 40 : 50,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'UNIMA Library',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: isMobile ? 20 : 24,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: 0.5,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  Text(
-                                    'Book Search & Catalogue',
-                                    style: TextStyle(
-                                      color: AppTheme.accentGold,
-                                      fontSize: isMobile ? 12 : 14,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+              background: Stack(
+                children: [
+                  // Rotating background images with smooth transitions
+                  Container(
+                    key: ValueKey<int>(_currentImageIndex),
+                    decoration: BoxDecoration(
+                      image: DecorationImage(
+                        image: AssetImage(_backgroundImages[_currentImageIndex]),
+                        fit: BoxFit.cover,
+                        opacity: 0.3,
+                      ),
                     ),
                   ),
-                ),
+                  // Dark overlay for better text visibility
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          AppTheme.primaryNavy.withValues(alpha: 0.7),
+                          AppTheme.primaryNavy.withValues(alpha: 0.8),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Content
+                  SafeArea(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isMobile ? 20 : 40,
+                        vertical: 20,
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Image.asset(
+                                'assets/images/unima_logo.jpg',
+                                height: isMobile ? 40 : 50,
+                                errorBuilder: (context, error, stackTrace) => Icon(
+                                  Icons.account_balance_rounded,
+                                  size: isMobile ? 40 : 50,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'UNIMA Library',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: isMobile ? 20 : 24,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 0.5,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      'Book Search & Catalogue',
+                                      style: TextStyle(
+                                        color: AppTheme.accentGold,
+                                        fontSize: isMobile ? 12 : 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             actions: [
