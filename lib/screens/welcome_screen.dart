@@ -857,7 +857,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              '2024 University of Malawi • All Rights Reserved',
+                              '2026 University of Malawi • All Rights Reserved',
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
