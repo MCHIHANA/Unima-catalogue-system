@@ -33,7 +33,6 @@ class _StudentSearchScreenState extends State<StudentSearchScreen> {
   final List<String> _backgroundImages = [
     'assets/images/books.png',
     'assets/images/image2.jpg',
-    'assets/images/books22.avif',
     'assets/images/Library-Shelving-1.jpg',
   ];
   Timer? _imageTimer;
