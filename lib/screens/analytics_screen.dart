@@ -134,10 +134,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         }
       }
 
-      // Admin Recommendation Section
+      // Librarian Recommendation Section
       if (recommendation != null && recommendation.isNotEmpty) {
         sheet.appendRow([]);
-        sheet.appendRow(['ADMIN RECOMMENDATION & NOTES']);
+        sheet.appendRow(['LIBRARIAN RECOMMENDATION & NOTES']);
         sheet.appendRow([recommendation]);
       }
 
@@ -235,10 +235,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         buffer.writeln('</table>');
       }
 
-      // Admin Recommendation
+      // Librarian Recommendation
       if (recommendation != null && recommendation.isNotEmpty) {
         buffer.writeln('<div class="recommendation">');
-        buffer.writeln('<h2>Admin Recommendation & Notes</h2>');
+        buffer.writeln('<h2>Librarian Recommendation & Notes</h2>');
         buffer.writeln('<p>${recommendation.replaceAll('\n', '<br/>')}</p>');
         buffer.writeln('</div>');
       }
@@ -380,7 +380,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Text('Admin Recommendation & Notes', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                    pw.Text('Librarian Recommendation & Notes', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
                     pw.SizedBox(height: 10),
                     pw.Text(recommendation, style: const pw.TextStyle(fontSize: 11)),
                   ],
@@ -910,7 +910,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Admin Recommendation', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+          const Text('Librarian Recommendation', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
           const SizedBox(height: 16),
           TextField(
             controller: _recommendationController,
