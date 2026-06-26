@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme/app_theme.dart';
 import 'student_search_screen.dart';
 import 'login_screen.dart';
+import 'books_available_screen.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -419,7 +420,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                                   _buildActionCard(
                                     context,
                                     icon: Icons.admin_panel_settings_rounded,
-                                    title: 'Librarian Login',
+                                    title: 'librarian POrtal',
                                     description: 'Manage library resources',
                                     color: AppTheme.accentGold,
                                     gradient: LinearGradient(
@@ -463,7 +464,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                                     child: _buildActionCard(
                                       context,
                                       icon: Icons.admin_panel_settings_rounded,
-                                      title: 'Librarian',
+                                      title: 'librarian POrtal',
                                       description: 'Manage library resources',
                                       color: AppTheme.accentGold,
                                       gradient: LinearGradient(
@@ -532,77 +533,109 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                             const SizedBox(height: 40),
                             
                             // Statistics Grid
-                            isMobile
-                                ? Column(
-                                    children: [
-                                      _buildStatCard(
-                                        icon: Icons.menu_book_rounded,
-                                        count: _booksCount,
-                                        label: 'Books Available',
-                                        color: AppTheme.primaryNavy,
-                                        isMobile: isMobile,
-                                      ),
-                                      const SizedBox(height: 16),
-                                      _buildStatCard(
-                                        icon: Icons.people_rounded,
-                                        count: _studentsCount,
-                                        label: 'Active Students',
-                                        color: AppTheme.primaryNavy,
-                                        isMobile: isMobile,
-                                      ),
-                                      const SizedBox(height: 16),
-                                      _buildStatCard(
-                                        icon: Icons.article_rounded,
-                                        count: _resourcesCount,
-                                        label: 'Digital Resources',
-                                        color: AppTheme.primaryNavy,
-                                        isMobile: isMobile,
-                                      ),
-                                      const SizedBox(height: 16),
-                                      _buildStatCard(
-                                        icon: Icons.school_rounded,
-                                        count: _schoolsCount,
-                                        label: 'Academic Schools',
-                                        color: AppTheme.primaryNavy,
-                                        isMobile: isMobile,
-                                      ),
-                                    ],
-                                  )
-                                : Wrap(
-                                    spacing: 20,
-                                    runSpacing: 20,
-                                    alignment: WrapAlignment.center,
-                                    children: [
-                                      _buildStatCard(
-                                        icon: Icons.menu_book_rounded,
-                                        count: _booksCount,
-                                        label: 'Books Available',
-                                        color: AppTheme.primaryNavy,
-                                        isMobile: isMobile,
-                                      ),
-                                      _buildStatCard(
-                                        icon: Icons.people_rounded,
-                                        count: _studentsCount,
-                                        label: 'Active Students',
-                                        color: AppTheme.primaryNavy,
-                                        isMobile: isMobile,
-                                      ),
-                                      _buildStatCard(
-                                        icon: Icons.article_rounded,
-                                        count: _resourcesCount,
-                                        label: 'Digital Resources',
-                                        color: AppTheme.primaryNavy,
-                                        isMobile: isMobile,
-                                      ),
-                                      _buildStatCard(
-                                        icon: Icons.school_rounded,
-                                        count: _schoolsCount,
-                                        label: 'Academic Schools',
-                                        color: AppTheme.primaryNavy,
-                                        isMobile: isMobile,
-                                      ),
-                                    ],
-                                  ),
+                             isMobile
+                                 ? Column(
+                                     children: [
+                                       _buildStatCard(
+                                         icon: Icons.school_rounded,
+                                         count: _schoolsCount,
+                                         label: 'Academic Schools',
+                                         color: AppTheme.primaryNavy,
+                                         isMobile: isMobile,
+                                         onTap: () {
+                                           Navigator.push(
+                                             context,
+                                             MaterialPageRoute(
+                                               builder: (context) => const StudentSearchScreen(),
+                                             ),
+                                           );
+                                         },
+                                       ),
+                                       const SizedBox(height: 16),
+                                       _buildStatCard(
+                                         icon: Icons.menu_book_rounded,
+                                         count: _booksCount,
+                                         label: 'Books Available',
+                                         color: AppTheme.primaryNavy,
+                                         isMobile: isMobile,
+                                         onTap: () {
+                                           Navigator.push(
+                                             context,
+                                             MaterialPageRoute(
+                                               builder: (context) => const StudentSearchScreen(),
+                                             ),
+                                           );
+                                         },
+                                       ),
+                                       const SizedBox(height: 16),
+                                       _buildStatCard(
+                                         icon: Icons.people_rounded,
+                                         count: _studentsCount,
+                                         label: 'Active Students',
+                                         color: AppTheme.primaryNavy,
+                                         isMobile: isMobile,
+                                       ),
+                                       const SizedBox(height: 16),
+                                       _buildStatCard(
+                                         icon: Icons.article_rounded,
+                                         count: _resourcesCount,
+                                         label: 'Digital Resources',
+                                         color: AppTheme.primaryNavy,
+                                         isMobile: isMobile,
+                                       ),
+                                     ],
+                                   )
+                                 : Wrap(
+                                     spacing: 20,
+                                     runSpacing: 20,
+                                     alignment: WrapAlignment.center,
+                                     children: [
+                                       _buildStatCard(
+                                         icon: Icons.school_rounded,
+                                         count: _schoolsCount,
+                                         label: 'Academic Schools',
+                                         color: AppTheme.primaryNavy,
+                                         isMobile: isMobile,
+                                         onTap: () {
+                                           Navigator.push(
+                                             context,
+                                             MaterialPageRoute(
+                                               builder: (context) => const StudentSearchScreen(),
+                                             ),
+                                           );
+                                         },
+                                       ),
+                                       _buildStatCard(
+                                         icon: Icons.menu_book_rounded,
+                                         count: _booksCount,
+                                         label: 'Books Available',
+                                         color: AppTheme.primaryNavy,
+                                         isMobile: isMobile,
+                                         onTap: () {
+                                           Navigator.push(
+                                             context,
+                                             MaterialPageRoute(
+                                               builder: (context) => const StudentSearchScreen(),
+                                             ),
+                                           );
+                                         },
+                                       ),
+                                       _buildStatCard(
+                                         icon: Icons.people_rounded,
+                                         count: _studentsCount,
+                                         label: 'Active Students',
+                                         color: AppTheme.primaryNavy,
+                                         isMobile: isMobile,
+                                       ),
+                                       _buildStatCard(
+                                         icon: Icons.article_rounded,
+                                         count: _resourcesCount,
+                                         label: 'Digital Resources',
+                                         color: AppTheme.primaryNavy,
+                                         isMobile: isMobile,
+                                       ),
+                                     ],
+                                   ),
                           ],
                         ),
                       ),
@@ -619,6 +652,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                                     'Extensive Book Collection',
                                     'Thousands of academic resources at your fingertips',
                                     isMobile,
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const StudentSearchScreen(),
+                                        ),
+                                      );
+                                    },
                                   ),
                                   const SizedBox(height: 20),
                                   _buildImageShowcase(
@@ -637,6 +678,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                                       'Extensive Book Collection',
                                       'Thousands of academic resources at your fingertips',
                                       isMobile,
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => const StudentSearchScreen(),
+                                          ),
+                                        );
+                                      },
                                     ),
                                   ),
                                   const SizedBox(width: 24),
@@ -997,90 +1046,135 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
     required String label,
     required Color color,
     required bool isMobile,
+    VoidCallback? onTap,
   }) {
-    return Container(
-      width: isMobile ? double.infinity : 260,
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            color,
-            color.withOpacity(0.85),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppTheme.accentGold.withOpacity(0.5),
-          width: 2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.4),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: AppTheme.accentGold.withOpacity(0.2),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: AppTheme.accentGold.withOpacity(0.5),
-                width: 2,
-              ),
-            ),
-            child: Icon(
-              icon,
-              size: 44,
-              color: AppTheme.accentGold,
-            ),
-          ),
-          const SizedBox(height: 24),
-          TweenAnimationBuilder<double>(
-            duration: const Duration(milliseconds: 1500),
-            tween: Tween(begin: 0, end: count.toDouble()),
-            builder: (context, value, child) {
-              return Text(
-                value.toInt().toString().replaceAllMapped(
-                  RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                  (Match m) => '${m[1]},',
-                ),
-                style: TextStyle(
-                  fontSize: isMobile ? 40 : 48,
-                  fontWeight: FontWeight.w900,
-                  color: AppTheme.accentGold,
-                  height: 1,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black.withOpacity(0.3),
-                      offset: const Offset(0, 2),
-                      blurRadius: 4,
-                    ),
+    final bool isClickable = onTap != null;
+    bool isHovered = false;
+
+    return StatefulBuilder(
+      builder: (context, setStateBuilder) {
+        return MouseRegion(
+          cursor: isClickable ? SystemMouseCursors.click : SystemMouseCursors.basic,
+          onEnter: (_) {
+            if (isClickable) {
+              setStateBuilder(() => isHovered = true);
+            }
+          },
+          onExit: (_) {
+            if (isClickable) {
+              setStateBuilder(() => isHovered = false);
+            }
+          },
+          child: GestureDetector(
+            onTap: onTap,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              transform: isHovered 
+                  ? (Matrix4.diagonal3Values(1.03, 1.03, 1.0)..setTranslationRaw(0.0, -8.0, 0.0)) 
+                  : Matrix4.identity(),
+              width: isMobile ? double.infinity : 260,
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    color,
+                    isHovered ? color.withOpacity(0.95) : color.withOpacity(0.85),
                   ],
                 ),
-              );
-            },
-          ),
-          const SizedBox(height: 14),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: isMobile ? 15 : 17,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-              letterSpacing: 0.5,
-              height: 1.3,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isHovered ? AppTheme.accentGold : AppTheme.accentGold.withOpacity(0.5),
+                  width: isHovered ? 2.5 : 2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: isHovered ? AppTheme.accentGold.withOpacity(0.4) : color.withOpacity(0.4),
+                    blurRadius: isHovered ? 25 : 20,
+                    offset: isHovered ? const Offset(0, 12) : const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: isHovered ? AppTheme.accentGold.withOpacity(0.3) : AppTheme.accentGold.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isHovered ? AppTheme.accentGold : AppTheme.accentGold.withOpacity(0.5),
+                        width: 2,
+                      ),
+                    ),
+                    child: Icon(
+                      icon,
+                      size: 44,
+                      color: AppTheme.accentGold,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  TweenAnimationBuilder<double>(
+                    duration: const Duration(milliseconds: 1500),
+                    tween: Tween(begin: 0, end: count.toDouble()),
+                    builder: (context, value, child) {
+                      return Text(
+                        value.toInt().toString().replaceAllMapped(
+                          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+                          (Match m) => '${m[1]},',
+                        ),
+                        style: TextStyle(
+                          fontSize: isMobile ? 40 : 48,
+                          fontWeight: FontWeight.w900,
+                          color: AppTheme.accentGold,
+                          height: 1,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black.withOpacity(0.3),
+                              offset: const Offset(0, 2),
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          label,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: isMobile ? 15 : 17,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            letterSpacing: 0.5,
+                            height: 1.3,
+                          ),
+                        ),
+                      ),
+                      if (isClickable) ...[
+                        const SizedBox(width: 8),
+                        const Icon(
+                          Icons.arrow_forward_rounded,
+                          color: AppTheme.accentGold,
+                          size: 16,
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1151,9 +1245,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
     String imagePath,
     String title,
     String description,
-    bool isMobile,
-  ) {
-    return Container(
+    bool isMobile, {
+    VoidCallback? onTap,
+  }) {
+    return MouseRegion(
+      cursor: onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
@@ -1284,6 +1383,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
               ),
             ),
           ],
+        ),
+      ),
         ),
       ),
     );
