@@ -1,11 +1,10 @@
-import 'dart:async';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme/app_theme.dart';
-import 'student_search_screen.dart';
-import 'login_screen.dart';
 import 'books_available_screen.dart';
+import 'library_info_screen.dart';
+import 'login_screen.dart';
+import 'school_books_screen.dart';
+import 'student_search_screen.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -14,1379 +13,1239 @@ class WelcomeScreen extends StatefulWidget {
   State<WelcomeScreen> createState() => _WelcomeScreenState();
 }
 
-class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateMixin {
-  late AnimationController _fadeController;
-  late AnimationController _slideController;
-  late AnimationController _scaleController;
-  late AnimationController _textController;
-  late AnimationController _statsController;
-  late AnimationController _graphController;
-  
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _textAnimation;
+class _WelcomeScreenState extends State<WelcomeScreen> {
+  int _selectedIndex = 0;
 
-  int _currentImageIndex = 0;
-  final List<String> _backgroundImages = [
-    'assets/images/books.png',
-    'assets/images/image2.jpg',
+  static const List<_PublicSchool> _schools = [
+    _PublicSchool(
+      id: 'school-of-natural-and-applied-sciences',
+      name: 'School of Natural and Applied Sciences',
+      subtitle: 'Science, technology, mathematics and applied research',
+      icon: Icons.science_rounded,
+    ),
+    _PublicSchool(
+      id: 'school-of-humanities-and-social-sciences',
+      name: 'School of Humanities and Social Sciences',
+      subtitle: 'History, culture, society and human development',
+      icon: Icons.history_edu_rounded,
+    ),
+    _PublicSchool(
+      id: 'school-of-education',
+      name: 'School of Education',
+      subtitle: 'Teaching, learning and educational leadership',
+      icon: Icons.school_rounded,
+    ),
+    _PublicSchool(
+      id: 'school-of-law-economics-and-governance',
+      name: 'School of Law, Economics and Government',
+      subtitle: 'Law, economics, policy and public leadership',
+      icon: Icons.gavel_rounded,
+    ),
+    _PublicSchool(
+      id: 'kamuzu-college-of-health-sciences',
+      name: 'Kamuzu College of Health Sciences',
+      subtitle: 'Medicine, health sciences and clinical research',
+      icon: Icons.local_hospital_rounded,
+    ),
   ];
-  Timer? _imageTimer;
-
-  // Animated statistics
-  int _booksCount = 0;
-  int _studentsCount = 0;
-  int _resourcesCount = 0;
-  int _schoolsCount = 0;
-
-  int _targetBooks = 0;       // loaded from Firestore stream
-  final int _targetStudents = 8500;
-  final int _targetResources = 2300;
-  final int _targetSchools = 5;
-
-  StreamSubscription<QuerySnapshot>? _booksSubscription;
-  Timer? _statsTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    
-    // Fade animation
-    _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeIn),
-    );
-
-    // Slide animation
-    _slideController = AnimationController(
-      duration: const Duration(milliseconds: 1200),
-      vsync: this,
-    );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic));
-
-    // Scale animation
-    _scaleController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
-      vsync: this,
-    );
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(parent: _scaleController, curve: Curves.easeOutBack),
-    );
-
-    // Text animation (continuous pulse)
-    _textController = AnimationController(
-      duration: const Duration(milliseconds: 2000),
-      vsync: this,
-    )..repeat(reverse: true);
-    _textAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
-      CurvedAnimation(parent: _textController, curve: Curves.easeInOut),
-    );
-
-    // Stats animation
-    _statsController = AnimationController(
-      duration: const Duration(milliseconds: 2500),
-      vsync: this,
-    );
-
-    // Graph animation
-    _graphController = AnimationController(
-      duration: const Duration(milliseconds: 2000),
-      vsync: this,
-    )..repeat(reverse: true);
-
-    // Start animations
-    _fadeController.forward();
-    _slideController.forward();
-    _scaleController.forward();
-
-    // Listen to real-time book count from Firestore
-    _booksSubscription = FirebaseFirestore.instance
-        .collection('books')
-        .snapshots()
-        .listen((snapshot) {
-      if (!mounted) return;
-      final newCount = snapshot.docs.length;
-      if (newCount != _targetBooks) {
-        setState(() {
-          _targetBooks = newCount;
-          // Immediately show the real count (no animation lag for updates)
-          _booksCount = newCount;
-        });
-      }
-    });
-
-    // Animate the other static counters after a short delay
-    Future.delayed(const Duration(milliseconds: 800), () {
-      if (mounted) _animateStats();
-    });
-
-    // Start background image rotation
-    _imageTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      if (mounted) {
-        setState(() {
-          _currentImageIndex = (_currentImageIndex + 1) % _backgroundImages.length;
-        });
-      }
-    });
-  }
-
-  void _animateStats() {
-    _statsController.forward();
-    _statsTimer = Timer.periodic(const Duration(milliseconds: 30), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-      
-      setState(() {
-        if (_studentsCount < _targetStudents) {
-          _studentsCount += (_targetStudents / 80).round().clamp(1, _targetStudents);
-          if (_studentsCount > _targetStudents) _studentsCount = _targetStudents;
-        }
-        if (_resourcesCount < _targetResources) {
-          _resourcesCount += (_targetResources / 80).round().clamp(1, _targetResources);
-          if (_resourcesCount > _targetResources) _resourcesCount = _targetResources;
-        }
-        if (_schoolsCount < _targetSchools) {
-          _schoolsCount += 1;
-          if (_schoolsCount > _targetSchools) _schoolsCount = _targetSchools;
-        }
-        
-        if (_studentsCount >= _targetStudents && 
-            _resourcesCount >= _targetResources &&
-            _schoolsCount >= _targetSchools) {
-          timer.cancel();
-        }
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    _fadeController.dispose();
-    _slideController.dispose();
-    _scaleController.dispose();
-    _textController.dispose();
-    _statsController.dispose();
-    _graphController.dispose();
-    _imageTimer?.cancel();
-    _statsTimer?.cancel();
-    _booksSubscription?.cancel();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final isMobile = size.width < 600;
+    final pages = [
+      _HomeDashboard(onNavigate: _handleHomeNavigation),
+      _CatalogueGateway(
+        onOpenCatalogue: _openCatalogue,
+        onOpenStudentSearch: _openStudentSearch,
+      ),
+      _SchoolsOverview(schools: _schools),
+      _ServicesOverview(
+        onOpenServices: () => _openInfo(LibraryInfoPage.services),
+      ),
+      _MoreOverview(onOpenInfo: _openInfo),
+    ];
 
     return Scaffold(
-      body: Stack(
-        children: [
-          // Animated Background
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 1000),
-            child: Container(
-              key: ValueKey<int>(_currentImageIndex),
-              decoration: BoxDecoration(
-                image: DecorationImage(
-                  image: AssetImage(_backgroundImages[_currentImageIndex]),
-                  fit: BoxFit.cover,
-                  colorFilter: ColorFilter.mode(
-                    Colors.black.withOpacity(0.6),
-                    BlendMode.darken,
-                  ),
-                ),
-              ),
-            ),
+      backgroundColor: AppTheme.backgroundLight,
+      drawer: _ModernDrawer(
+        onSelectHome: () => _selectTab(0),
+        onSelectCatalogue: _openCatalogue,
+        onSelectSchools: () => _selectTab(2),
+        onSelectServices: () => _selectTab(3),
+        onOpenInfo: _openInfo,
+        onStudentSearch: _openStudentSearch,
+        onLibrarianLogin: _openLibrarianLogin,
+      ),
+      body: SafeArea(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 280),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          child: pages[_selectedIndex],
+        ),
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedIndex,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        backgroundColor: Colors.white,
+        indicatorColor: AppTheme.primaryNavy.withValues(alpha: 0.1),
+        elevation: 8,
+        onDestinationSelected: _selectTab,
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home_rounded),
+            label: 'Home',
           ),
-
-          // Gradient Overlay
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  AppTheme.primaryNavy.withOpacity(0.8),
-                  Colors.black.withOpacity(0.7),
-                ],
-              ),
-            ),
+          NavigationDestination(
+            icon: Icon(Icons.auto_stories_outlined),
+            selectedIcon: Icon(Icons.auto_stories_rounded),
+            label: 'Catalogue',
           ),
-
-          // Content
-          SafeArea(
-            child: FadeTransition(
-              opacity: _fadeAnimation,
-              child: Center(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.all(isMobile ? 24 : 40),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Logo with scale animation
-                      ScaleTransition(
-                        scale: _scaleAnimation,
-                        child: Container(
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppTheme.accentGold.withOpacity(0.5),
-                                blurRadius: 40,
-                                spreadRadius: 5,
-                              ),
-                            ],
-                          ),
-                          child: Image.asset(
-                            'assets/images/unima_logo.jpg',
-                            height: isMobile ? 120 : 150,
-                            width: isMobile ? 120 : 150,
-                            fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) => Icon(
-                              Icons.account_balance_rounded,
-                              size: isMobile ? 100 : 130,
-                              color: AppTheme.primaryNavy,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 40),
-
-                      // University Name with slide animation
-                      SlideTransition(
-                        position: _slideAnimation,
-                        child: Column(
-                          children: [
-                            Text(
-                              'UNIVERSITY OF MALAWI',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: isMobile ? 28 : 42,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 2,
-                                color: Colors.white,
-                                shadows: [
-                                  Shadow(
-                                    color: Colors.black.withOpacity(0.5),
-                                    offset: const Offset(0, 4),
-                                    blurRadius: 10,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Container(
-                              height: 4,
-                              width: 120,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    AppTheme.accentGold,
-                                    AppTheme.accentGold.withOpacity(0.3),
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(2),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppTheme.accentGold.withOpacity(0.5),
-                                    blurRadius: 10,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'LIBRARY CATALOGUE RESERVE SYSTEM',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: isMobile ? 14 : 18,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 1.5,
-                                color: Colors.white.withOpacity(0.9),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 60),
-
-                      // Animated Welcome Message
-                      ScaleTransition(
-                        scale: _textAnimation,
-                        child: Container(
-                          constraints: const BoxConstraints(maxWidth: 700),
-                          padding: EdgeInsets.all(isMobile ? 28 : 40),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.95),
-                            borderRadius: BorderRadius.circular(24),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppTheme.accentGold.withOpacity(0.3),
-                                blurRadius: 30,
-                                offset: const Offset(0, 10),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            children: [
-                              Icon(
-                                Icons.auto_stories_rounded,
-                                size: isMobile ? 56 : 72,
-                                color: AppTheme.accentGold,
-                              ),
-                              const SizedBox(height: 20),
-                              ShaderMask(
-                                shaderCallback: (bounds) => LinearGradient(
-                                  colors: [
-                                    AppTheme.primaryNavy,
-                                    AppTheme.accentGold,
-                                  ],
-                                ).createShader(bounds),
-                                child: Text(
-                                  'Welcome to UNIMA Library',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: isMobile ? 28 : 38,
-                                    fontWeight: FontWeight.w900,
-                                    color: Colors.white,
-                                    height: 1.2,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Discover Knowledge, Empower Learning',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: isMobile ? 16 : 20,
-                                  color: AppTheme.primaryNavy.withOpacity(0.7),
-                                  fontWeight: FontWeight.w600,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                'Access our extensive collection of academic resources, journals, and research materials',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: isMobile ? 14 : 16,
-                                  color: AppTheme.textGrey,
-                                  fontWeight: FontWeight.w500,
-                                  height: 1.6,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 40),
-
-                      // Action Cards with hover effect
-                      Container(
-                        constraints: const BoxConstraints(maxWidth: 900),
-                        child: isMobile
-                            ? Column(
-                                children: [
-                                  _buildActionCard(
-                                    context,
-                                    icon: Icons.search_rounded,
-                                    title: 'Search Books',
-                                    description: 'Explore our digital catalogue',
-                                    color: AppTheme.primaryNavy,
-                                    gradient: LinearGradient(
-                                      colors: [AppTheme.primaryNavy, AppTheme.primaryNavy.withOpacity(0.8)],
-                                    ),
-                                    onTap: () {
-                                      Navigator.pushReplacement(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => const StudentSearchScreen(),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                  const SizedBox(height: 20),
-                                  _buildActionCard(
-                                    context,
-                                    icon: Icons.admin_panel_settings_rounded,
-                                    title: 'librarian POrtal',
-                                    description: 'Manage library resources',
-                                    color: AppTheme.accentGold,
-                                    gradient: LinearGradient(
-                                      colors: [AppTheme.accentGold, const Color(0xFFD4A017)],
-                                    ),
-                                    onTap: () {
-                                      Navigator.pushReplacement(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => const LoginScreen(),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ],
-                              )
-                            : Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildActionCard(
-                                      context,
-                                      icon: Icons.search_rounded,
-                                      title: 'Search Books',
-                                      description: 'Explore our digital catalogue',
-                                      color: AppTheme.primaryNavy,
-                                      gradient: LinearGradient(
-                                        colors: [AppTheme.primaryNavy, AppTheme.primaryNavy.withOpacity(0.8)],
-                                      ),
-                                      onTap: () {
-                                        Navigator.pushReplacement(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => const StudentSearchScreen(),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 32),
-                                  Expanded(
-                                    child: _buildActionCard(
-                                      context,
-                                      icon: Icons.admin_panel_settings_rounded,
-                                      title: 'librarian POrtal',
-                                      description: 'Manage library resources',
-                                      color: AppTheme.accentGold,
-                                      gradient: LinearGradient(
-                                        colors: [AppTheme.accentGold, const Color(0xFFD4A017)],
-                                      ),
-                                      onTap: () {
-                                        Navigator.pushReplacement(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => const LoginScreen(),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                      ),
-                      const SizedBox(height: 60),
-
-                      // Statistics Section with Animated Counters
-                      Container(
-                        constraints: const BoxConstraints(maxWidth: 1200),
-                        padding: EdgeInsets.all(isMobile ? 24 : 40),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.95),
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppTheme.primaryNavy.withOpacity(0.2),
-                              blurRadius: 30,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.analytics_rounded,
-                                  color: AppTheme.accentGold,
-                                  size: isMobile ? 28 : 36,
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  'Library at a Glance',
-                                  style: TextStyle(
-                                    fontSize: isMobile ? 22 : 32,
-                                    fontWeight: FontWeight.w900,
-                                    color: AppTheme.primaryNavy,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Real-time statistics and insights',
-                              style: TextStyle(
-                                fontSize: isMobile ? 13 : 15,
-                                color: AppTheme.textGrey,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 40),
-                            
-                            // Statistics Grid
-                             isMobile
-                                 ? Column(
-                                     children: [
-                                       _buildStatCard(
-                                         icon: Icons.school_rounded,
-                                         count: _schoolsCount,
-                                         label: 'Academic Schools',
-                                         color: AppTheme.primaryNavy,
-                                         isMobile: isMobile,
-                                         onTap: () {
-                                           Navigator.push(
-                                             context,
-                                             MaterialPageRoute(
-                                               builder: (context) => const StudentSearchScreen(),
-                                             ),
-                                           );
-                                         },
-                                       ),
-                                       const SizedBox(height: 16),
-                                       _buildStatCard(
-                                         icon: Icons.menu_book_rounded,
-                                         count: _booksCount,
-                                         label: 'Books Available',
-                                         color: AppTheme.primaryNavy,
-                                         isMobile: isMobile,
-                                         onTap: () {
-                                           Navigator.push(
-                                             context,
-                                             MaterialPageRoute(
-                                               builder: (context) => const StudentSearchScreen(),
-                                             ),
-                                           );
-                                         },
-                                       ),
-                                       const SizedBox(height: 16),
-                                       _buildStatCard(
-                                         icon: Icons.people_rounded,
-                                         count: _studentsCount,
-                                         label: 'Active Students',
-                                         color: AppTheme.primaryNavy,
-                                         isMobile: isMobile,
-                                       ),
-                                       const SizedBox(height: 16),
-                                       _buildStatCard(
-                                         icon: Icons.article_rounded,
-                                         count: _resourcesCount,
-                                         label: 'Digital Resources',
-                                         color: AppTheme.primaryNavy,
-                                         isMobile: isMobile,
-                                       ),
-                                     ],
-                                   )
-                                 : Wrap(
-                                     spacing: 20,
-                                     runSpacing: 20,
-                                     alignment: WrapAlignment.center,
-                                     children: [
-                                       _buildStatCard(
-                                         icon: Icons.school_rounded,
-                                         count: _schoolsCount,
-                                         label: 'Academic Schools',
-                                         color: AppTheme.primaryNavy,
-                                         isMobile: isMobile,
-                                         onTap: () {
-                                           Navigator.push(
-                                             context,
-                                             MaterialPageRoute(
-                                               builder: (context) => const StudentSearchScreen(),
-                                             ),
-                                           );
-                                         },
-                                       ),
-                                       _buildStatCard(
-                                         icon: Icons.menu_book_rounded,
-                                         count: _booksCount,
-                                         label: 'Books Available',
-                                         color: AppTheme.primaryNavy,
-                                         isMobile: isMobile,
-                                         onTap: () {
-                                           Navigator.push(
-                                             context,
-                                             MaterialPageRoute(
-                                               builder: (context) => const StudentSearchScreen(),
-                                             ),
-                                           );
-                                         },
-                                       ),
-                                       _buildStatCard(
-                                         icon: Icons.people_rounded,
-                                         count: _studentsCount,
-                                         label: 'Active Students',
-                                         color: AppTheme.primaryNavy,
-                                         isMobile: isMobile,
-                                       ),
-                                       _buildStatCard(
-                                         icon: Icons.article_rounded,
-                                         count: _resourcesCount,
-                                         label: 'Digital Resources',
-                                         color: AppTheme.primaryNavy,
-                                         isMobile: isMobile,
-                                       ),
-                                     ],
-                                   ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 50),
-
-                      // Library Showcase Images Section
-                      Container(
-                        constraints: const BoxConstraints(maxWidth: 1200),
-                        child: isMobile
-                            ? Column(
-                                children: [
-                                  _buildImageShowcase(
-                                    'assets/images/books.png',
-                                    'Extensive Book Collection',
-                                    'Thousands of academic resources at your fingertips',
-                                    isMobile,
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => const StudentSearchScreen(),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                  const SizedBox(height: 20),
-                                  _buildImageShowcase(
-                                    'assets/images/image2.jpg',
-                                    'Modern Library Facilities',
-                                    'State-of-the-art study spaces and digital resources',
-                                    isMobile,
-                                  ),
-                                ],
-                              )
-                            : Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildImageShowcase(
-                                      'assets/images/books.png',
-                                      'Extensive Book Collection',
-                                      'Thousands of academic resources at your fingertips',
-                                      isMobile,
-                                      onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => const StudentSearchScreen(),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 24),
-                                  Expanded(
-                                    child: _buildImageShowcase(
-                                      'assets/images/image2.jpg',
-                                      'Modern Library Facilities',
-                                      'State-of-the-art study spaces and digital resources',
-                                      isMobile,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                      ),
-                      const SizedBox(height: 50),
-
-                      // About the Library Section
-                      Container(
-                        constraints: const BoxConstraints(maxWidth: 1200),
-                        padding: EdgeInsets.all(isMobile ? 28 : 48),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              AppTheme.primaryNavy,
-                              AppTheme.primaryNavy.withOpacity(0.9),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppTheme.primaryNavy.withOpacity(0.3),
-                              blurRadius: 30,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // About Section
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(14),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.accentGold.withOpacity(0.2),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Icon(
-                                    Icons.info_rounded,
-                                    color: AppTheme.accentGold,
-                                    size: isMobile ? 28 : 36,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Text(
-                                    'About the Library',
-                                    style: TextStyle(
-                                      fontSize: isMobile ? 24 : 32,
-                                      fontWeight: FontWeight.w900,
-                                      color: AppTheme.accentGold,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 20),
-                            Text(
-                              'The University of Malawi Library supports the core and non-core functions of the university. The library is an integral part of the University\'s mission which revolves around teaching, research and consultancy. This is in-line with the library\'s primary objective of providing access to information resources, conservation and preservation of knowledge.',
-                              style: TextStyle(
-                                fontSize: isMobile ? 15 : 17,
-                                color: Colors.white.withOpacity(0.95),
-                                fontWeight: FontWeight.w500,
-                                height: 1.8,
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'The University of Malawi Library is located at the center of the teaching area of the campus, easily accessible to all members, who include staff, students and registered members of the community.',
-                              style: TextStyle(
-                                fontSize: isMobile ? 15 : 17,
-                                color: Colors.white.withOpacity(0.95),
-                                fontWeight: FontWeight.w500,
-                                height: 1.8,
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-                            const SizedBox(height: 40),
-
-                            // Vision & Mission Cards
-                            isMobile
-                                ? Column(
-                                    children: [
-                                      _buildInfoCard(
-                                        icon: Icons.visibility_rounded,
-                                        title: 'Vision',
-                                        content: 'To be a library with a global perspective, providing an excellent academic environment for learning, teaching, research and collaboration.',
-                                        isMobile: isMobile,
-                                      ),
-                                      const SizedBox(height: 20),
-                                      _buildInfoCard(
-                                        icon: Icons.flag_rounded,
-                                        title: 'Mission',
-                                        content: 'Provide quality information resources and services to support learning, teaching, research, and consultancy to the college and the wider community for the sustainable development of the country.',
-                                        isMobile: isMobile,
-                                      ),
-                                    ],
-                                  )
-                                : Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Expanded(
-                                        child: _buildInfoCard(
-                                          icon: Icons.visibility_rounded,
-                                          title: 'Vision',
-                                          content: 'To be a library with a global perspective, providing an excellent academic environment for learning, teaching, research and collaboration.',
-                                          isMobile: isMobile,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 24),
-                                      Expanded(
-                                        child: _buildInfoCard(
-                                          icon: Icons.flag_rounded,
-                                          title: 'Mission',
-                                          content: 'Provide quality information resources and services to support learning, teaching, research, and consultancy to the college and the wider community for the sustainable development of the country.',
-                                          isMobile: isMobile,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                            const SizedBox(height: 40),
-
-                            // Access to Library Section
-                            Container(
-                              padding: EdgeInsets.all(isMobile ? 24 : 32),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: AppTheme.accentGold.withOpacity(0.3),
-                                  width: 2,
-                                ),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.library_books_rounded,
-                                        color: AppTheme.accentGold,
-                                        size: isMobile ? 28 : 32,
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          'Access to the Library',
-                                          style: TextStyle(
-                                            fontSize: isMobile ? 20 : 26,
-                                            fontWeight: FontWeight.w900,
-                                            color: AppTheme.accentGold,
-                                            letterSpacing: 0.5,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 20),
-                                  Text(
-                                    'The University of Malawi library offers a wide range of services designed to support the academic and research needs of its students, researchers, staff, and the surrounding community. These services include access to a vast collection of books, journals, and digital resources, providing essential information for study and research.',
-                                    style: TextStyle(
-                                      fontSize: isMobile ? 14 : 16,
-                                      color: Colors.white.withOpacity(0.95),
-                                      fontWeight: FontWeight.w500,
-                                      height: 1.8,
-                                      letterSpacing: 0.3,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    'The library also offers personalized research assistance, training workshops on information literacy, and a comfortable environment for individual and group study. Its commitment to serving not only the university community but also local residents highlights its role as a vital resource hub, fostering learning and knowledge sharing beyond campus boundaries.',
-                                    style: TextStyle(
-                                      fontSize: isMobile ? 14 : 16,
-                                      color: Colors.white.withOpacity(0.95),
-                                      fontWeight: FontWeight.w500,
-                                      height: 1.8,
-                                      letterSpacing: 0.3,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 60),
-
-                      // Footer
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.copyright_rounded,
-                              size: 16,
-                              color: Colors.white.withOpacity(0.8),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '2026 University of Malawi • All Rights Reserved',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.white.withOpacity(0.8),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+          NavigationDestination(
+            icon: Icon(Icons.account_balance_outlined),
+            selectedIcon: Icon(Icons.account_balance_rounded),
+            label: 'Schools',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.design_services_outlined),
+            selectedIcon: Icon(Icons.design_services_rounded),
+            label: 'Services',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.grid_view_outlined),
+            selectedIcon: Icon(Icons.grid_view_rounded),
+            label: 'More',
           ),
         ],
       ),
     );
   }
 
-  Widget _buildActionCard(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required String description,
-    required Color color,
-    required Gradient gradient,
-    required VoidCallback onTap,
-  }) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: onTap,
-        child: TweenAnimationBuilder<double>(
-          duration: const Duration(milliseconds: 200),
-          tween: Tween(begin: 1.0, end: 1.0),
-          builder: (context, scale, child) {
-            return Transform.scale(
-              scale: scale,
-              child: Container(
-                padding: const EdgeInsets.all(36),
-                decoration: BoxDecoration(
-                  gradient: gradient,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: color.withOpacity(0.4),
-                      blurRadius: 25,
-                      offset: const Offset(0, 12),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        icon,
-                        size: 56,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      title,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      description,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: Colors.white.withOpacity(0.9),
-                        fontWeight: FontWeight.w500,
-                        height: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'Get Started',
-                            style: TextStyle(
-                              color: color,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 16,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Icon(
-                            Icons.arrow_forward_rounded,
-                            color: color,
-                            size: 20,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
+  void _selectTab(int index) {
+    setState(() => _selectedIndex = index);
   }
 
-  Widget _buildStatCard({
-    required IconData icon,
-    required int count,
-    required String label,
-    required Color color,
-    required bool isMobile,
-    VoidCallback? onTap,
-  }) {
-    final bool isClickable = onTap != null;
-    bool isHovered = false;
+  void _handleHomeNavigation(_HomeDestination destination) {
+    switch (destination) {
+      case _HomeDestination.catalogue:
+        _openCatalogue();
+      case _HomeDestination.schools:
+        _selectTab(2);
+      case _HomeDestination.news:
+        _openInfo(LibraryInfoPage.news);
+      case _HomeDestination.events:
+        _openInfo(LibraryInfoPage.events);
+      case _HomeDestination.services:
+        _selectTab(3);
+      case _HomeDestination.locations:
+        _openInfo(LibraryInfoPage.locations);
+      case _HomeDestination.help:
+        _openInfo(LibraryInfoPage.help);
+      case _HomeDestination.about:
+        _openInfo(LibraryInfoPage.about);
+    }
+  }
 
-    return StatefulBuilder(
-      builder: (context, setStateBuilder) {
-        return MouseRegion(
-          cursor: isClickable ? SystemMouseCursors.click : SystemMouseCursors.basic,
-          onEnter: (_) {
-            if (isClickable) {
-              setStateBuilder(() => isHovered = true);
-            }
-          },
-          onExit: (_) {
-            if (isClickable) {
-              setStateBuilder(() => isHovered = false);
-            }
-          },
-          child: GestureDetector(
-            onTap: onTap,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOutCubic,
-              transform: isHovered 
-                  ? (Matrix4.diagonal3Values(1.03, 1.03, 1.0)..setTranslationRaw(0.0, -8.0, 0.0)) 
-                  : Matrix4.identity(),
-              width: isMobile ? double.infinity : 260,
-              padding: const EdgeInsets.all(28),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    color,
-                    isHovered ? color.withOpacity(0.95) : color.withOpacity(0.85),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: isHovered ? AppTheme.accentGold : AppTheme.accentGold.withOpacity(0.5),
-                  width: isHovered ? 2.5 : 2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: isHovered ? AppTheme.accentGold.withOpacity(0.4) : color.withOpacity(0.4),
-                    blurRadius: isHovered ? 25 : 20,
-                    offset: isHovered ? const Offset(0, 12) : const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: isHovered ? AppTheme.accentGold.withOpacity(0.3) : AppTheme.accentGold.withOpacity(0.2),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: isHovered ? AppTheme.accentGold : AppTheme.accentGold.withOpacity(0.5),
-                        width: 2,
-                      ),
-                    ),
-                    child: Icon(
-                      icon,
-                      size: 44,
-                      color: AppTheme.accentGold,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  TweenAnimationBuilder<double>(
-                    duration: const Duration(milliseconds: 1500),
-                    tween: Tween(begin: 0, end: count.toDouble()),
-                    builder: (context, value, child) {
-                      return Text(
-                        value.toInt().toString().replaceAllMapped(
-                          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                          (Match m) => '${m[1]},',
-                        ),
-                        style: TextStyle(
-                          fontSize: isMobile ? 40 : 48,
-                          fontWeight: FontWeight.w900,
-                          color: AppTheme.accentGold,
-                          height: 1,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black.withOpacity(0.3),
-                              offset: const Offset(0, 2),
-                              blurRadius: 4,
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          label,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: isMobile ? 15 : 17,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                            letterSpacing: 0.5,
-                            height: 1.3,
-                          ),
-                        ),
-                      ),
-                      if (isClickable) ...[
-                        const SizedBox(width: 8),
-                        const Icon(
-                          Icons.arrow_forward_rounded,
-                          color: AppTheme.accentGold,
-                          size: 16,
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
-              ),
-            ),
+  void _openCatalogue() {
+    Navigator.push(context, _fadeRoute(const BooksAvailableScreen()));
+  }
+
+  void _openStudentSearch() {
+    Navigator.push(context, _fadeRoute(const StudentSearchScreen()));
+  }
+
+  void _openLibrarianLogin() {
+    Navigator.push(context, _fadeRoute(const LoginScreen()));
+  }
+
+  void _openInfo(LibraryInfoPage page) {
+    Navigator.push(context, _fadeRoute(LibraryInfoScreen(page: page)));
+  }
+
+  PageRouteBuilder<void> _fadeRoute(Widget screen) {
+    return PageRouteBuilder<void>(
+      pageBuilder: (context, animation, secondaryAnimation) => screen,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+        );
+        return FadeTransition(
+          opacity: curved,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0.03, 0.02),
+              end: Offset.zero,
+            ).animate(curved),
+            child: child,
           ),
         );
       },
     );
   }
+}
 
-  Widget _buildInfoCard({
-    required IconData icon,
-    required String title,
-    required String content,
-    required bool isMobile,
-  }) {
-    return Container(
-      padding: EdgeInsets.all(isMobile ? 24 : 28),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppTheme.accentGold.withOpacity(0.3),
-          width: 2,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+class _HomeDashboard extends StatelessWidget {
+  final ValueChanged<_HomeDestination> onNavigate;
+
+  const _HomeDashboard({required this.onNavigate});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isSmall =
+            constraints.maxHeight < 730 || constraints.maxWidth < 380;
+        final horizontalPadding = constraints.maxWidth < 420 ? 16.0 : 22.0;
+        final cardAspect = constraints.maxWidth < 380 ? 2.6 : 2.35;
+
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            horizontalPadding,
+            8,
+            horizontalPadding,
+            10,
+          ),
+          child: Column(
             children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppTheme.accentGold.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  icon,
-                  color: AppTheme.accentGold,
-                  size: isMobile ? 24 : 28,
+              _HomeTopSection(isCompact: isSmall),
+              SizedBox(height: isSmall ? 10 : 14),
+              Expanded(
+                child: GridView.count(
+                  crossAxisCount: 2,
+                  childAspectRatio: cardAspect,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: isSmall ? 8 : 12,
+                  crossAxisSpacing: isSmall ? 8 : 12,
+                  children: [
+                    _DashboardTile(
+                      icon: Icons.auto_stories_rounded,
+                      title: 'Catalogue',
+                      subtitle: 'Browse resources',
+                      onTap: () => onNavigate(_HomeDestination.catalogue),
+                    ),
+                    _DashboardTile(
+                      icon: Icons.account_balance_rounded,
+                      title: 'Schools',
+                      subtitle: 'Academic collections',
+                      onTap: () => onNavigate(_HomeDestination.schools),
+                    ),
+                    _DashboardTile(
+                      icon: Icons.newspaper_rounded,
+                      title: 'News',
+                      subtitle: 'Library updates',
+                      onTap: () => onNavigate(_HomeDestination.news),
+                    ),
+                    _DashboardTile(
+                      icon: Icons.event_rounded,
+                      title: 'Library Events',
+                      subtitle: 'Workshops and dates',
+                      onTap: () => onNavigate(_HomeDestination.events),
+                    ),
+                    _DashboardTile(
+                      icon: Icons.design_services_rounded,
+                      title: 'Services',
+                      subtitle: 'Research support',
+                      onTap: () => onNavigate(_HomeDestination.services),
+                    ),
+                    _DashboardTile(
+                      icon: Icons.location_on_rounded,
+                      title: 'Locations',
+                      subtitle: 'Libraries and hours',
+                      onTap: () => onNavigate(_HomeDestination.locations),
+                    ),
+                    _DashboardTile(
+                      icon: Icons.help_rounded,
+                      title: 'Help',
+                      subtitle: 'FAQs and rules',
+                      onTap: () => onNavigate(_HomeDestination.help),
+                    ),
+                    _DashboardTile(
+                      icon: Icons.info_rounded,
+                      title: 'About',
+                      subtitle: 'Mission and vision',
+                      onTap: () => onNavigate(_HomeDestination.about),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: isMobile ? 20 : 24,
-                    fontWeight: FontWeight.w900,
-                    color: AppTheme.accentGold,
-                    letterSpacing: 0.5,
+              _QuickAccessBar(
+                compact: isSmall,
+                onStudentSearch: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const StudentSearchScreen(),
                   ),
+                ),
+                onLibrarianLogin: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Text(
-            content,
-            style: TextStyle(
-              fontSize: isMobile ? 14 : 16,
-              color: Colors.white.withOpacity(0.95),
-              fontWeight: FontWeight.w500,
-              height: 1.8,
-              letterSpacing: 0.3,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
+}
 
-  Widget _buildImageShowcase(
-    String imagePath,
-    String title,
-    String description,
-    bool isMobile, {
-    VoidCallback? onTap,
-  }) {
-    return MouseRegion(
-      cursor: onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryNavy.withOpacity(0.3),
-            blurRadius: 30,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: Stack(
+class _HomeTopSection extends StatelessWidget {
+  final bool isCompact;
+
+  const _HomeTopSection({required this.isCompact});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
           children: [
-            // Image
-            AspectRatio(
-              aspectRatio: isMobile ? 1.2 : 1.5,
-              child: Image.asset(
-                imagePath,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  color: AppTheme.primaryNavy.withOpacity(0.1),
-                  child: Center(
-                    child: Icon(
-                      Icons.image_rounded,
-                      size: 80,
-                      color: AppTheme.primaryNavy.withOpacity(0.3),
+            Builder(
+              builder: (context) {
+                return IconButton.filledTonal(
+                  tooltip: 'Open navigation',
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                  icon: const Icon(Icons.menu_rounded),
+                );
+              },
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppTheme.accentGold.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.verified_rounded,
+                    size: 15,
+                    color: AppTheme.accentGold,
+                  ),
+                  SizedBox(width: 6),
+                  Text(
+                    'UNIMA',
+                    style: TextStyle(
+                      color: AppTheme.primaryNavy,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
-                ),
-              ),
-            ),
-            // Gradient Overlay
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withOpacity(0.8),
-                    ],
-                    stops: const [0.4, 1.0],
-                  ),
-                ),
-              ),
-            ),
-            // Text Content
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                padding: EdgeInsets.all(isMobile ? 20 : 28),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: AppTheme.accentGold,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        'FEATURED',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                          color: AppTheme.primaryNavy,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: isMobile ? 20 : 24,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        letterSpacing: 0.5,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black.withOpacity(0.5),
-                            offset: const Offset(0, 2),
-                            blurRadius: 4,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      description,
-                      style: TextStyle(
-                        fontSize: isMobile ? 13 : 15,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white.withOpacity(0.95),
-                        height: 1.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            // Decorative Corner
-            Positioned(
-              top: 16,
-              right: 16,
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppTheme.accentGold.withOpacity(0.9),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.accentGold.withOpacity(0.5),
-                      blurRadius: 15,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-                child: Icon(
-                  Icons.auto_stories_rounded,
-                  color: AppTheme.primaryNavy,
-                  size: isMobile ? 20 : 24,
-                ),
+                ],
               ),
             ),
           ],
         ),
+        SizedBox(height: isCompact ? 4 : 8),
+        Container(
+          height: isCompact ? 62 : 74,
+          width: isCompact ? 62 : 74,
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: const [
+              BoxShadow(
+                color: AppTheme.cardShadow,
+                blurRadius: 18,
+                offset: Offset(0, 10),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Image.asset(
+              'assets/images/unima_logo.jpg',
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) => const Icon(
+                Icons.account_balance_rounded,
+                color: AppTheme.primaryNavy,
+              ),
+            ),
+          ),
+        ),
+        SizedBox(height: isCompact ? 8 : 12),
+        Text(
+          'UNIMA Library Catalogue',
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: AppTheme.primaryNavy,
+            fontSize: isCompact ? 22 : 26,
+            fontWeight: FontWeight.w900,
+            height: 1.05,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Search, discover and access University Library resources.',
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: AppTheme.textGrey,
+            fontSize: isCompact ? 12 : 13,
+            fontWeight: FontWeight.w600,
+            height: 1.25,
+          ),
+        ),
+        SizedBox(height: isCompact ? 10 : 14),
+        Hero(
+          tag: 'catalogue-search',
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const StudentSearchScreen(),
+                ),
+              ),
+              borderRadius: BorderRadius.circular(20),
+              child: Ink(
+                height: isCompact ? 52 : 58,
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: AppTheme.primaryNavy.withValues(alpha: 0.08),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.primaryNavy.withValues(alpha: 0.08),
+                      blurRadius: 22,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      height: 34,
+                      width: 34,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryNavy.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.search_rounded,
+                        color: AppTheme.primaryNavy,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Search books, journals, authors...',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppTheme.textGrey,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const Icon(
+                      Icons.arrow_forward_rounded,
+                      color: AppTheme.accentGold,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DashboardTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _DashboardTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: AppTheme.primaryNavy.withValues(alpha: 0.06)),
       ),
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Container(
+                height: 42,
+                width: 42,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryNavy.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: AppTheme.primaryNavy, size: 23),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppTheme.textDark,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppTheme.textGrey,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+}
+
+class _QuickAccessBar extends StatelessWidget {
+  final bool compact;
+  final VoidCallback onStudentSearch;
+  final VoidCallback onLibrarianLogin;
+
+  const _QuickAccessBar({
+    required this.compact,
+    required this.onStudentSearch,
+    required this.onLibrarianLogin,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(compact ? 8 : 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppTheme.primaryNavy.withValues(alpha: 0.06)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: onStudentSearch,
+              icon: const Icon(Icons.search_rounded, size: 18),
+              label: const Text('Student Search'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: onLibrarianLogin,
+              icon: const Icon(Icons.admin_panel_settings_rounded, size: 18),
+              label: const Text('Librarian Login'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CatalogueGateway extends StatelessWidget {
+  final VoidCallback onOpenCatalogue;
+  final VoidCallback onOpenStudentSearch;
+
+  const _CatalogueGateway({
+    required this.onOpenCatalogue,
+    required this.onOpenStudentSearch,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionScaffold(
+      title: 'Catalogue',
+      subtitle: 'Search and browse the University Library collection.',
+      icon: Icons.auto_stories_rounded,
+      child: Column(
+        children: [
+          _FeatureCard(
+            icon: Icons.library_books_rounded,
+            title: 'Browse Full Catalogue',
+            subtitle:
+                'View all books, e-resources, categories and availability.',
+            actionLabel: 'Open catalogue',
+            onTap: onOpenCatalogue,
+          ),
+          const SizedBox(height: 14),
+          _FeatureCard(
+            icon: Icons.manage_search_rounded,
+            title: 'Student Search',
+            subtitle:
+                'Search quickly by title, author, ISBN, course or subject.',
+            actionLabel: 'Start search',
+            onTap: onOpenStudentSearch,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SchoolsOverview extends StatelessWidget {
+  final List<_PublicSchool> schools;
+
+  const _SchoolsOverview({required this.schools});
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionScaffold(
+      title: 'Schools',
+      subtitle: 'Browse resources by academic school.',
+      icon: Icons.account_balance_rounded,
+      child: Column(
+        children: schools.map((school) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _SchoolCard(school: school),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _ServicesOverview extends StatelessWidget {
+  final VoidCallback onOpenServices;
+
+  const _ServicesOverview({required this.onOpenServices});
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionScaffold(
+      title: 'Library Services',
+      subtitle: 'Academic support for study, teaching and research.',
+      icon: Icons.design_services_rounded,
+      child: Column(
+        children: [
+          _ServicePill(
+            icon: Icons.search_rounded,
+            title: 'Research assistance',
+          ),
+          _ServicePill(
+            icon: Icons.cloud_done_rounded,
+            title: 'Digital resources',
+          ),
+          _ServicePill(
+            icon: Icons.groups_rounded,
+            title: 'Information literacy workshops',
+          ),
+          _ServicePill(
+            icon: Icons.menu_book_rounded,
+            title: 'Books, journals and reserve materials',
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: onOpenServices,
+            icon: const Icon(Icons.arrow_forward_rounded),
+            label: const Text('View all services'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MoreOverview extends StatelessWidget {
+  final ValueChanged<LibraryInfoPage> onOpenInfo;
+
+  const _MoreOverview({required this.onOpenInfo});
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      _MoreItem(Icons.info_rounded, 'About Library', LibraryInfoPage.about),
+      _MoreItem(Icons.newspaper_rounded, 'Announcements', LibraryInfoPage.news),
+      _MoreItem(Icons.event_rounded, 'Library Events', LibraryInfoPage.events),
+      _MoreItem(
+        Icons.location_on_rounded,
+        'Contact and Locations',
+        LibraryInfoPage.locations,
+      ),
+      _MoreItem(Icons.rule_rounded, 'Rules and FAQs', LibraryInfoPage.help),
+      _MoreItem(Icons.settings_rounded, 'Settings', LibraryInfoPage.settings),
+    ];
+
+    return _SectionScaffold(
+      title: 'More',
+      subtitle: 'Library information, support and settings.',
+      icon: Icons.grid_view_rounded,
+      child: Column(
+        children: items.map((item) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: ListTile(
+              tileColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              leading: Icon(item.icon, color: AppTheme.primaryNavy),
+              title: Text(
+                item.title,
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => onOpenInfo(item.page),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _SectionScaffold extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Widget child;
+
+  const _SectionScaffold({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomScrollView(
+      slivers: [
+        SliverAppBar(
+          pinned: true,
+          backgroundColor: AppTheme.backgroundLight,
+          foregroundColor: AppTheme.primaryNavy,
+          elevation: 0,
+          leading: Builder(
+            builder: (context) {
+              return IconButton(
+                tooltip: 'Open navigation',
+                onPressed: () => Scaffold.of(context).openDrawer(),
+                icon: const Icon(Icons.menu_rounded),
+              );
+            },
+          ),
+          title: Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.w900),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _SectionHeader(title: title, subtitle: subtitle, icon: icon),
+                const SizedBox(height: 20),
+                child,
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+
+  const _SectionHeader({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryNavy,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryNavy.withValues(alpha: 0.18),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            height: 52,
+            width: 52,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(icon, color: AppTheme.accentGold),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.78),
+                    fontWeight: FontWeight.w600,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SchoolCard extends StatelessWidget {
+  final _PublicSchool school;
+
+  const _SchoolCard({required this.school});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: AppTheme.primaryNavy.withValues(alpha: 0.07)),
+      ),
+      child: InkWell(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                SchoolBooksScreen(schoolId: school.id, schoolName: school.name),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                height: 52,
+                width: 52,
+                decoration: BoxDecoration(
+                  color: AppTheme.accentGold.withValues(alpha: 0.13),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(school.icon, color: AppTheme.primaryNavy),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      school.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppTheme.textDark,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      school.subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppTheme.textGrey,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppTheme.accentGold,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FeatureCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String actionLabel;
+  final VoidCallback onTap;
+
+  const _FeatureCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.actionLabel,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: AppTheme.primaryNavy.withValues(alpha: 0.08)),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                height: 50,
+                width: 50,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryNavy.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(icon, color: AppTheme.primaryNavy),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: AppTheme.textDark,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: AppTheme.textGrey,
+                        height: 1.35,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      actionLabel,
+                      style: const TextStyle(
+                        color: AppTheme.accentGold,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.arrow_forward_rounded,
+                color: AppTheme.accentGold,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ServicePill extends StatelessWidget {
+  final IconData icon;
+  final String title;
+
+  const _ServicePill({required this.icon, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.primaryNavy.withValues(alpha: 0.06)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: AppTheme.primaryNavy),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                color: AppTheme.textDark,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ModernDrawer extends StatelessWidget {
+  final VoidCallback onSelectHome;
+  final VoidCallback onSelectCatalogue;
+  final VoidCallback onSelectSchools;
+  final VoidCallback onSelectServices;
+  final ValueChanged<LibraryInfoPage> onOpenInfo;
+  final VoidCallback onStudentSearch;
+  final VoidCallback onLibrarianLogin;
+
+  const _ModernDrawer({
+    required this.onSelectHome,
+    required this.onSelectCatalogue,
+    required this.onSelectSchools,
+    required this.onSelectServices,
+    required this.onOpenInfo,
+    required this.onStudentSearch,
+    required this.onLibrarianLogin,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return NavigationDrawer(
+      backgroundColor: Colors.white,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 26, 20, 18),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Image.asset(
+                  'assets/images/unima_logo.jpg',
+                  height: 48,
+                  width: 48,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) =>
+                      const Icon(Icons.account_balance_rounded),
+                ),
+              ),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'UNIMA Library',
+                      style: TextStyle(
+                        color: AppTheme.primaryNavy,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'Catalogue',
+                      style: TextStyle(
+                        color: AppTheme.textGrey,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        _drawerItem(context, Icons.home_rounded, 'Home', onSelectHome),
+        _drawerItem(
+          context,
+          Icons.auto_stories_rounded,
+          'Catalogue',
+          onSelectCatalogue,
+        ),
+        _drawerItem(
+          context,
+          Icons.account_balance_rounded,
+          'Schools',
+          onSelectSchools,
+        ),
+        _drawerItem(
+          context,
+          Icons.design_services_rounded,
+          'Library Services',
+          onSelectServices,
+        ),
+        _drawerItem(
+          context,
+          Icons.event_rounded,
+          'Events',
+          () => onOpenInfo(LibraryInfoPage.events),
+        ),
+        _drawerItem(
+          context,
+          Icons.newspaper_rounded,
+          'News',
+          () => onOpenInfo(LibraryInfoPage.news),
+        ),
+        _drawerItem(
+          context,
+          Icons.info_rounded,
+          'About',
+          () => onOpenInfo(LibraryInfoPage.about),
+        ),
+        _drawerItem(
+          context,
+          Icons.location_on_rounded,
+          'Contact',
+          () => onOpenInfo(LibraryInfoPage.locations),
+        ),
+        _drawerItem(
+          context,
+          Icons.settings_rounded,
+          'Settings',
+          () => onOpenInfo(LibraryInfoPage.settings),
+        ),
+        const Divider(),
+        _drawerItem(
+          context,
+          Icons.manage_search_rounded,
+          'Student Search',
+          onStudentSearch,
+        ),
+        _drawerItem(
+          context,
+          Icons.admin_panel_settings_rounded,
+          'Librarian Login',
+          onLibrarianLogin,
+        ),
+      ],
+    );
+  }
+
+  Widget _drawerItem(
+    BuildContext context,
+    IconData icon,
+    String title,
+    VoidCallback onTap,
+  ) {
+    return NavigationDrawerDestination(
+      icon: Icon(icon),
+      label: Text(title),
+    ).wrapWithTap(context, onTap);
+  }
+}
+
+extension _DrawerDestinationTap on NavigationDrawerDestination {
+  Widget wrapWithTap(BuildContext context, VoidCallback onTap) {
+    return InkWell(
+      onTap: () {
+        Navigator.pop(context);
+        onTap();
+      },
+      child: this,
+    );
+  }
+}
+
+enum _HomeDestination {
+  catalogue,
+  schools,
+  news,
+  events,
+  services,
+  locations,
+  help,
+  about,
+}
+
+class _PublicSchool {
+  final String id;
+  final String name;
+  final String subtitle;
+  final IconData icon;
+
+  const _PublicSchool({
+    required this.id,
+    required this.name,
+    required this.subtitle,
+    required this.icon,
+  });
+}
+
+class _MoreItem {
+  final IconData icon;
+  final String title;
+  final LibraryInfoPage page;
+
+  const _MoreItem(this.icon, this.title, this.page);
 }
