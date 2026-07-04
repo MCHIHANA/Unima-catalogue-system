@@ -42,10 +42,10 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       icon: Icons.gavel_rounded,
     ),
     _PublicSchool(
-      id: 'kamuzu-college-of-health-sciences',
-      name: 'Kamuzu College of Health Sciences',
-      subtitle: 'Medicine, health sciences and clinical research',
-      icon: Icons.local_hospital_rounded,
+      id: 'school-of-arts-communication-and-design',
+      name: 'School of Arts, Communication and Design',
+      subtitle: 'Creative arts, communication, design and media studies',
+      icon: Icons.palette_rounded,
     ),
   ];
 
@@ -199,91 +199,121 @@ class _HomeDashboard extends StatelessWidget {
         final horizontalPadding = constraints.maxWidth < 420 ? 16.0 : 22.0;
         final cardAspect = constraints.maxWidth < 380 ? 2.6 : 2.35;
 
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-            horizontalPadding,
-            8,
-            horizontalPadding,
-            10,
-          ),
-          child: Column(
-            children: [
-              _HomeTopSection(isCompact: isSmall),
-              SizedBox(height: isSmall ? 10 : 14),
-              Expanded(
-                child: GridView.count(
-                  crossAxisCount: 2,
-                  childAspectRatio: cardAspect,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: isSmall ? 8 : 12,
-                  crossAxisSpacing: isSmall ? 8 : 12,
-                  children: [
-                    _DashboardTile(
-                      icon: Icons.auto_stories_rounded,
-                      title: 'Catalogue',
-                      subtitle: 'Browse resources',
-                      onTap: () => onNavigate(_HomeDestination.catalogue),
-                    ),
-                    _DashboardTile(
-                      icon: Icons.account_balance_rounded,
-                      title: 'Schools',
-                      subtitle: 'Academic collections',
-                      onTap: () => onNavigate(_HomeDestination.schools),
-                    ),
-                    _DashboardTile(
-                      icon: Icons.newspaper_rounded,
-                      title: 'News',
-                      subtitle: 'Library updates',
-                      onTap: () => onNavigate(_HomeDestination.news),
-                    ),
-                    _DashboardTile(
-                      icon: Icons.event_rounded,
-                      title: 'Library Events',
-                      subtitle: 'Workshops and dates',
-                      onTap: () => onNavigate(_HomeDestination.events),
-                    ),
-                    _DashboardTile(
-                      icon: Icons.design_services_rounded,
-                      title: 'Services',
-                      subtitle: 'Research support',
-                      onTap: () => onNavigate(_HomeDestination.services),
-                    ),
-                    _DashboardTile(
-                      icon: Icons.location_on_rounded,
-                      title: 'Locations',
-                      subtitle: 'Libraries and hours',
-                      onTap: () => onNavigate(_HomeDestination.locations),
-                    ),
-                    _DashboardTile(
-                      icon: Icons.help_rounded,
-                      title: 'Help',
-                      subtitle: 'FAQs and rules',
-                      onTap: () => onNavigate(_HomeDestination.help),
-                    ),
-                    _DashboardTile(
-                      icon: Icons.info_rounded,
-                      title: 'About',
-                      subtitle: 'Mission and vision',
-                      onTap: () => onNavigate(_HomeDestination.about),
-                    ),
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(
+              'assets/images/students in library_1911_header.jpg',
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => Image.asset(
+                'assets/images/Library-Shelving-1.jpg',
+                fit: BoxFit.cover,
+              ),
+            ),
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AppTheme.primaryNavy.withValues(alpha: 0.82),
+                    const Color(0xFF2447B8).withValues(alpha: 0.55),
+                    AppTheme.backgroundLight.withValues(alpha: 0.9),
                   ],
+                  stops: const [0.0, 0.48, 1.0],
                 ),
               ),
-              _QuickAccessBar(
-                compact: isSmall,
-                onStudentSearch: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const StudentSearchScreen(),
+            ),
+            Container(color: Colors.white.withValues(alpha: 0.08)),
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                8,
+                horizontalPadding,
+                10,
+              ),
+              child: Column(
+                children: [
+                  _HomeTopSection(isCompact: isSmall),
+                  SizedBox(height: isSmall ? 10 : 14),
+                  Expanded(
+                    child: GridView.count(
+                      crossAxisCount: 2,
+                      childAspectRatio: cardAspect,
+                      physics: const NeverScrollableScrollPhysics(),
+                      mainAxisSpacing: isSmall ? 8 : 12,
+                      crossAxisSpacing: isSmall ? 8 : 12,
+                      children: [
+                        _DashboardTile(
+                          icon: Icons.auto_stories_rounded,
+                          title: 'Catalogue',
+                          subtitle: 'Browse resources',
+                          onTap: () => onNavigate(_HomeDestination.catalogue),
+                        ),
+                        _DashboardTile(
+                          icon: Icons.account_balance_rounded,
+                          title: 'Schools',
+                          subtitle: 'Academic collections',
+                          onTap: () => onNavigate(_HomeDestination.schools),
+                        ),
+                        _DashboardTile(
+                          icon: Icons.newspaper_rounded,
+                          title: 'News',
+                          subtitle: 'Library updates',
+                          onTap: () => onNavigate(_HomeDestination.news),
+                        ),
+                        _DashboardTile(
+                          icon: Icons.event_rounded,
+                          title: 'Library Events',
+                          subtitle: 'Workshops and dates',
+                          onTap: () => onNavigate(_HomeDestination.events),
+                        ),
+                        _DashboardTile(
+                          icon: Icons.design_services_rounded,
+                          title: 'Services',
+                          subtitle: 'Research support',
+                          onTap: () => onNavigate(_HomeDestination.services),
+                        ),
+                        _DashboardTile(
+                          icon: Icons.location_on_rounded,
+                          title: 'Locations',
+                          subtitle: 'Libraries and hours',
+                          onTap: () => onNavigate(_HomeDestination.locations),
+                        ),
+                        _DashboardTile(
+                          icon: Icons.help_rounded,
+                          title: 'Help',
+                          subtitle: 'FAQs and rules',
+                          onTap: () => onNavigate(_HomeDestination.help),
+                        ),
+                        _DashboardTile(
+                          icon: Icons.info_rounded,
+                          title: 'About',
+                          subtitle: 'Mission and vision',
+                          onTap: () => onNavigate(_HomeDestination.about),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                onLibrarianLogin: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                ),
+                  _QuickAccessBar(
+                    compact: isSmall,
+                    onStudentSearch: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const StudentSearchScreen(),
+                      ),
+                    ),
+                    onLibrarianLogin: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const LoginScreen(),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         );
       },
     );
@@ -314,8 +344,11 @@ class _HomeTopSection extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: AppTheme.accentGold.withValues(alpha: 0.12),
+                color: Colors.white.withValues(alpha: 0.9),
                 borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: AppTheme.accentGold.withValues(alpha: 0.35),
+                ),
               ),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
@@ -374,10 +407,17 @@ class _HomeTopSection extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            color: AppTheme.primaryNavy,
+            color: Colors.white,
             fontSize: isCompact ? 22 : 26,
             fontWeight: FontWeight.w900,
             height: 1.05,
+            shadows: [
+              Shadow(
+                color: AppTheme.primaryNavy.withValues(alpha: 0.35),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 6),
@@ -387,7 +427,7 @@ class _HomeTopSection extends StatelessWidget {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            color: AppTheme.textGrey,
+            color: Colors.white.withValues(alpha: 0.9),
             fontSize: isCompact ? 12 : 13,
             fontWeight: FontWeight.w600,
             height: 1.25,
@@ -410,16 +450,16 @@ class _HomeTopSection extends StatelessWidget {
                 height: isCompact ? 52 : 58,
                 padding: const EdgeInsets.symmetric(horizontal: 18),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Colors.white.withValues(alpha: 0.96),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: AppTheme.primaryNavy.withValues(alpha: 0.08),
+                    color: AppTheme.accentGold.withValues(alpha: 0.28),
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.primaryNavy.withValues(alpha: 0.08),
-                      blurRadius: 22,
-                      offset: const Offset(0, 12),
+                      color: AppTheme.primaryNavy.withValues(alpha: 0.18),
+                      blurRadius: 26,
+                      offset: const Offset(0, 14),
                     ),
                   ],
                 ),
@@ -481,15 +521,31 @@ class _DashboardTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(18),
       clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: AppTheme.primaryNavy.withValues(alpha: 0.06)),
-      ),
-      child: InkWell(
+      child: Ink(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.white.withValues(alpha: 0.98),
+              const Color(0xFFF1F5FF).withValues(alpha: 0.96),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppTheme.accentGold.withValues(alpha: 0.2)),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.primaryNavy.withValues(alpha: 0.08),
+              blurRadius: 18,
+              offset: const Offset(0, 9),
+            ),
+          ],
+        ),
+        child: InkWell(
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(12),
@@ -499,7 +555,12 @@ class _DashboardTile extends StatelessWidget {
                 height: 42,
                 width: 42,
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryNavy.withValues(alpha: 0.08),
+                  gradient: LinearGradient(
+                    colors: [
+                      AppTheme.primaryNavy.withValues(alpha: 0.12),
+                      AppTheme.accentGold.withValues(alpha: 0.16),
+                    ],
+                  ),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(icon, color: AppTheme.primaryNavy, size: 23),
@@ -538,6 +599,7 @@ class _DashboardTile extends StatelessWidget {
           ),
         ),
       ),
+      ),
     );
   }
 }
@@ -558,9 +620,21 @@ class _QuickAccessBar extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(compact ? 8 : 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: LinearGradient(
+          colors: [
+            Colors.white.withValues(alpha: 0.98),
+            const Color(0xFFEAF0FF).withValues(alpha: 0.98),
+          ],
+        ),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppTheme.primaryNavy.withValues(alpha: 0.06)),
+        border: Border.all(color: AppTheme.accentGold.withValues(alpha: 0.24)),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryNavy.withValues(alpha: 0.12),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -1081,8 +1155,71 @@ class _ModernDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final destinations = [
+      _DrawerDestination(
+        icon: Icons.home_rounded,
+        title: 'Home',
+        onTap: onSelectHome,
+      ),
+      _DrawerDestination(
+        icon: Icons.auto_stories_rounded,
+        title: 'Catalogue',
+        onTap: onSelectCatalogue,
+      ),
+      _DrawerDestination(
+        icon: Icons.account_balance_rounded,
+        title: 'Schools',
+        onTap: onSelectSchools,
+      ),
+      _DrawerDestination(
+        icon: Icons.design_services_rounded,
+        title: 'Library Services',
+        onTap: onSelectServices,
+      ),
+      _DrawerDestination(
+        icon: Icons.event_rounded,
+        title: 'Events',
+        onTap: () => onOpenInfo(LibraryInfoPage.events),
+      ),
+      _DrawerDestination(
+        icon: Icons.newspaper_rounded,
+        title: 'News',
+        onTap: () => onOpenInfo(LibraryInfoPage.news),
+      ),
+      _DrawerDestination(
+        icon: Icons.info_rounded,
+        title: 'About',
+        onTap: () => onOpenInfo(LibraryInfoPage.about),
+      ),
+      _DrawerDestination(
+        icon: Icons.location_on_rounded,
+        title: 'Contact',
+        onTap: () => onOpenInfo(LibraryInfoPage.locations),
+      ),
+      _DrawerDestination(
+        icon: Icons.settings_rounded,
+        title: 'Settings',
+        onTap: () => onOpenInfo(LibraryInfoPage.settings),
+      ),
+      _DrawerDestination(
+        icon: Icons.manage_search_rounded,
+        title: 'Student Search',
+        onTap: onStudentSearch,
+      ),
+      _DrawerDestination(
+        icon: Icons.admin_panel_settings_rounded,
+        title: 'Librarian Login',
+        onTap: onLibrarianLogin,
+      ),
+    ];
+
     return NavigationDrawer(
       backgroundColor: Colors.white,
+      selectedIndex: null,
+      onDestinationSelected: (index) {
+        Navigator.pop(context);
+        destinations[index].onTap();
+      },
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 26, 20, 18),
@@ -1126,95 +1263,32 @@ class _ModernDrawer extends StatelessWidget {
             ],
           ),
         ),
-        _drawerItem(context, Icons.home_rounded, 'Home', onSelectHome),
-        _drawerItem(
-          context,
-          Icons.auto_stories_rounded,
-          'Catalogue',
-          onSelectCatalogue,
-        ),
-        _drawerItem(
-          context,
-          Icons.account_balance_rounded,
-          'Schools',
-          onSelectSchools,
-        ),
-        _drawerItem(
-          context,
-          Icons.design_services_rounded,
-          'Library Services',
-          onSelectServices,
-        ),
-        _drawerItem(
-          context,
-          Icons.event_rounded,
-          'Events',
-          () => onOpenInfo(LibraryInfoPage.events),
-        ),
-        _drawerItem(
-          context,
-          Icons.newspaper_rounded,
-          'News',
-          () => onOpenInfo(LibraryInfoPage.news),
-        ),
-        _drawerItem(
-          context,
-          Icons.info_rounded,
-          'About',
-          () => onOpenInfo(LibraryInfoPage.about),
-        ),
-        _drawerItem(
-          context,
-          Icons.location_on_rounded,
-          'Contact',
-          () => onOpenInfo(LibraryInfoPage.locations),
-        ),
-        _drawerItem(
-          context,
-          Icons.settings_rounded,
-          'Settings',
-          () => onOpenInfo(LibraryInfoPage.settings),
-        ),
+        for (final item in destinations.take(9))
+          NavigationDrawerDestination(
+            icon: Icon(item.icon),
+            label: Text(item.title),
+          ),
         const Divider(),
-        _drawerItem(
-          context,
-          Icons.manage_search_rounded,
-          'Student Search',
-          onStudentSearch,
-        ),
-        _drawerItem(
-          context,
-          Icons.admin_panel_settings_rounded,
-          'Librarian Login',
-          onLibrarianLogin,
-        ),
+        for (final item in destinations.skip(9))
+          NavigationDrawerDestination(
+            icon: Icon(item.icon),
+            label: Text(item.title),
+          ),
       ],
     );
   }
-
-  Widget _drawerItem(
-    BuildContext context,
-    IconData icon,
-    String title,
-    VoidCallback onTap,
-  ) {
-    return NavigationDrawerDestination(
-      icon: Icon(icon),
-      label: Text(title),
-    ).wrapWithTap(context, onTap);
-  }
 }
 
-extension _DrawerDestinationTap on NavigationDrawerDestination {
-  Widget wrapWithTap(BuildContext context, VoidCallback onTap) {
-    return InkWell(
-      onTap: () {
-        Navigator.pop(context);
-        onTap();
-      },
-      child: this,
-    );
-  }
+class _DrawerDestination {
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+
+  const _DrawerDestination({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+  });
 }
 
 enum _HomeDestination {

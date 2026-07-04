@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/book.dart';
@@ -20,6 +19,8 @@ class _StudentSearchScreenState extends State<StudentSearchScreen> {
   final TextEditingController _searchController = TextEditingController();
   final BookService _bookService = BookService();
   final ReportService _reportService = ReportService();
+  final ScrollController _scrollController = ScrollController();
+  late final Stream<List<Book>> _booksStream;
   String _searchQuery = '';
   bool _isSearching = false;
   bool _hasHierarchyActive = false;
@@ -35,25 +36,17 @@ class _StudentSearchScreenState extends State<StudentSearchScreen> {
     'assets/images/image2.jpg',
     'assets/images/Library-Shelving-1.jpg',
   ];
-  Timer? _imageTimer;
 
   @override
   void initState() {
     super.initState();
-    // Start background image rotation every 5 seconds
-    _imageTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      if (mounted) {
-        setState(() {
-          _currentImageIndex = (_currentImageIndex + 1) % _backgroundImages.length;
-        });
-      }
-    });
+    _booksStream = _bookService.getBooks();
   }
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _searchController.dispose();
-    _imageTimer?.cancel();
     super.dispose();
   }
 
@@ -118,6 +111,8 @@ class _StudentSearchScreenState extends State<StudentSearchScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundLight,
       body: CustomScrollView(
+        key: const PageStorageKey<String>('student-search-scroll'),
+        controller: _scrollController,
         slivers: [
           // App Bar
           SliverAppBar(
@@ -303,7 +298,7 @@ class _StudentSearchScreenState extends State<StudentSearchScreen> {
 
                   // Advanced School / Department Filters
                   StreamBuilder<List<Book>>(
-                    stream: _bookService.getBooks(),
+                    stream: _booksStream,
                     builder: (context, snapshot) {
                       if (!snapshot.hasData || snapshot.data!.isEmpty) {
                         return const SizedBox.shrink();
@@ -320,7 +315,7 @@ class _StudentSearchScreenState extends State<StudentSearchScreen> {
 
                   // Search Results or Recommended Books
                   StreamBuilder<List<Book>>(
-                    stream: _bookService.getBooks(),
+                    stream: _booksStream,
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const Center(
@@ -358,7 +353,20 @@ class _StudentSearchScreenState extends State<StudentSearchScreen> {
   Widget _buildSearchResults(List<Book> results, bool isMobile) {
     if (results.isEmpty) {
       return Container(
-        padding: const EdgeInsets.all(48),
+        width: double.infinity,
+        padding: const EdgeInsets.all(36),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: AppTheme.primaryNavy.withValues(alpha: 0.06)),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.primaryNavy.withValues(alpha: 0.04),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
         child: Column(
           children: [
             Icon(
@@ -391,12 +399,41 @@ class _StudentSearchScreenState extends State<StudentSearchScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Found ${results.length} ${results.length == 1 ? 'book' : 'books'}',
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.textDark,
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryNavy,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.primaryNavy.withValues(alpha: 0.16),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.accentGold.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.fact_check_rounded, color: AppTheme.accentGold),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Found ${results.length} ${results.length == 1 ? 'book' : 'books'}',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 24),
@@ -457,18 +494,19 @@ class _StudentSearchScreenState extends State<StudentSearchScreen> {
   }
 
   Widget _buildBookCard(Book book, bool isMobile) {
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppTheme.primaryNavy.withValues(alpha: 0.07)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            color: AppTheme.primaryNavy.withValues(alpha: 0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -481,8 +519,13 @@ class _StudentSearchScreenState extends State<StudentSearchScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryNavy.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  gradient: LinearGradient(
+                    colors: [
+                      AppTheme.primaryNavy.withValues(alpha: 0.12),
+                      AppTheme.accentGold.withValues(alpha: 0.12),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: const Icon(
                   Icons.menu_book_rounded,
@@ -549,19 +592,82 @@ class _StudentSearchScreenState extends State<StudentSearchScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          const Divider(),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 24,
-            runSpacing: 12,
-            children: [
-              _buildInfoChip(Icons.category_outlined, book.category),
-              _buildInfoChip(Icons.school_outlined, book.course),
-              _buildInfoChip(Icons.qr_code, book.isbn),
-              _buildInfoChip(Icons.trending_up, '${book.searchCount} searches'),
-            ],
-          ),
+          _buildBookMetadataTable(book, isMobile),
         ],
+      ),
+    );
+  }
+
+  Widget _buildBookMetadataTable(Book book, bool isMobile) {
+    final columns = [
+      _BookColumn(Icons.category_outlined, 'Category', book.category),
+      _BookColumn(Icons.school_outlined, 'Course', book.course),
+      _BookColumn(Icons.qr_code_rounded, 'ISBN', book.isbn),
+      _BookColumn(Icons.trending_up_rounded, 'Searches', '${book.searchCount}'),
+    ];
+    final columnWidth = isMobile ? 148.0 : 176.0;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.backgroundLight,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.primaryNavy.withValues(alpha: 0.06)),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: columns.map((column) {
+            final isLast = columns.last == column;
+            return Container(
+              width: columnWidth,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                border: Border(
+                  right: BorderSide(
+                    color: isLast
+                        ? Colors.transparent
+                        : AppTheme.primaryNavy.withValues(alpha: 0.07),
+                  ),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(column.icon, size: 15, color: AppTheme.primaryNavy),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          column.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppTheme.primaryNavy,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 7),
+                  Text(
+                    column.value.isEmpty ? 'N/A' : column.value,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textGrey,
+                      fontWeight: FontWeight.w700,
+                      height: 1.25,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
       ),
     );
   }
@@ -962,4 +1068,12 @@ class _StudentSearchScreenState extends State<StudentSearchScreen> {
       ],
     );
   }
+}
+
+class _BookColumn {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _BookColumn(this.icon, this.label, this.value);
 }

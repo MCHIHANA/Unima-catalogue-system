@@ -11,5 +11,12 @@ void main() {
     expect(find.text('UNIMA Library Catalogue'), findsOneWidget);
     expect(find.text('Student Search'), findsOneWidget);
     expect(find.text('Librarian Login'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Open navigation'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Catalogue'), findsWidgets);
+    expect(find.text('Schools'), findsWidgets);
+    expect(find.text('Library Services'), findsOneWidget);
   });
 }

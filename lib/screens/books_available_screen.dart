@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/book.dart';
@@ -14,6 +13,8 @@ class BooksAvailableScreen extends StatefulWidget {
 class _BooksAvailableScreenState extends State<BooksAvailableScreen> {
   final BookService _bookService = BookService();
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  late final Stream<List<Book>> _booksStream;
   String _searchQuery = '';
   String _selectedCategory = 'All';
   String _sortBy = 'title'; // 'title', 'author', 'popularity'
@@ -26,25 +27,17 @@ class _BooksAvailableScreenState extends State<BooksAvailableScreen> {
     'assets/images/image2.jpg',
     'assets/images/Library-Shelving-1.jpg',
   ];
-  Timer? _imageTimer;
 
   @override
   void initState() {
     super.initState();
-    // Rotate background images
-    _imageTimer = Timer.periodic(const Duration(seconds: 6), (timer) {
-      if (mounted) {
-        setState(() {
-          _currentImageIndex = (_currentImageIndex + 1) % _backgroundImages.length;
-        });
-      }
-    });
+    _booksStream = _bookService.getBooks();
   }
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _searchController.dispose();
-    _imageTimer?.cancel();
     super.dispose();
   }
 
@@ -103,7 +96,7 @@ class _BooksAvailableScreenState extends State<BooksAvailableScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundLight,
       body: StreamBuilder<List<Book>>(
-        stream: _bookService.getBooks(),
+        stream: _booksStream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
@@ -129,6 +122,8 @@ class _BooksAvailableScreenState extends State<BooksAvailableScreen> {
           }
 
           return CustomScrollView(
+            key: const PageStorageKey<String>('books-available-scroll'),
+            controller: _scrollController,
             slivers: [
               // Premium App Bar
               SliverAppBar(
