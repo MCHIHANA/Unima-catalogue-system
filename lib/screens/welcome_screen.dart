@@ -7,14 +7,23 @@ import 'school_books_screen.dart';
 import 'student_search_screen.dart';
 
 class WelcomeScreen extends StatefulWidget {
-  const WelcomeScreen({super.key});
+  /// Optionally open a specific bottom-nav tab on launch.
+  final int initialIndex;
+
+  const WelcomeScreen({super.key, this.initialIndex = 0});
 
   @override
   State<WelcomeScreen> createState() => _WelcomeScreenState();
 }
 
 class _WelcomeScreenState extends State<WelcomeScreen> {
-  int _selectedIndex = 0;
+  late int _selectedIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.initialIndex;
+  }
 
   static const List<_PublicSchool> _schools = [
     _PublicSchool(

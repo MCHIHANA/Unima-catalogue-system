@@ -7,6 +7,7 @@ import '../utils/schools_and_departments.dart';
 import '../widgets/hierarchical_search_widget.dart';
 import 'login_screen.dart';
 import 'school_books_screen.dart';
+import 'welcome_screen.dart';
 
 class StudentSearchScreen extends StatefulWidget {
   const StudentSearchScreen({super.key});
@@ -110,6 +111,54 @@ class _StudentSearchScreenState extends State<StudentSearchScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundLight,
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: 1, // Catalogue tab is active when on student search
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        backgroundColor: Colors.white,
+        indicatorColor: AppTheme.primaryNavy.withValues(alpha: 0.1),
+        elevation: 8,
+        onDestinationSelected: (index) {
+          // Pop back to WelcomeScreen — it manages all tabs
+          Navigator.of(context).pop();
+          // After pop lands on WelcomeScreen, we can't call setState on it.
+          // So we just navigate back; WelcomeScreen can then handle its own tab.
+          // For a direct tab jump we push a fresh WelcomeScreen only if needed.
+          if (index != 1) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) => _WelcomeShortcut(tabIndex: index),
+              ),
+            );
+          }
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home_rounded),
+            label: 'Home',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.auto_stories_outlined),
+            selectedIcon: Icon(Icons.auto_stories_rounded),
+            label: 'Catalogue',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.account_balance_outlined),
+            selectedIcon: Icon(Icons.account_balance_rounded),
+            label: 'Schools',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.design_services_outlined),
+            selectedIcon: Icon(Icons.design_services_rounded),
+            label: 'Services',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.grid_view_outlined),
+            selectedIcon: Icon(Icons.grid_view_rounded),
+            label: 'More',
+          ),
+        ],
+      ),
       body: CustomScrollView(
         key: const PageStorageKey<String>('student-search-scroll'),
         controller: _scrollController,
@@ -745,15 +794,14 @@ class _StudentSearchScreenState extends State<StudentSearchScreen> {
 
   Widget _buildSchoolNavigationBar(bool isMobile) {
     final schools = SchoolsAndDepartments.getSchools();
-    final screenWidth = MediaQuery.of(context).size.width;
-    
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),
@@ -769,7 +817,7 @@ class _StudentSearchScreenState extends State<StudentSearchScreen> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppTheme.accentGold.withOpacity(0.1),
+                    color: AppTheme.accentGold.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
@@ -808,134 +856,128 @@ class _StudentSearchScreenState extends State<StudentSearchScreen> {
           ),
           const Divider(height: 1),
           Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             child: LayoutBuilder(
               builder: (context, constraints) {
-                // Calculate card width based on screen size
-                // For mobile: 2 cards per row, for tablet: 3 cards, for desktop: 5 cards
-                int cardsPerRow;
-                if (screenWidth < 600) {
-                  cardsPerRow = 2; // Mobile
-                } else if (screenWidth < 900) {
-                  cardsPerRow = 3; // Tablet
-                } else if (screenWidth < 1200) {
-                  cardsPerRow = 4; // Small desktop
-                } else {
-                  cardsPerRow = 5; // Large desktop - all 5 schools in one row
-                }
-                
-                // Calculate card width with proper spacing
-                final totalSpacing = (cardsPerRow - 1) * 16.0; // 16px gap between cards
-                final cardWidth = (constraints.maxWidth - totalSpacing) / cardsPerRow;
-                
-                return Wrap(
-                  spacing: 16,
-                  runSpacing: 16,
-                  alignment: WrapAlignment.spaceBetween,
-                  children: schools.map((school) {
-                    final schoolName = SchoolsAndDepartments.formatSchoolName(school);
+                final width = constraints.maxWidth;
+                // 2 columns on narrow mobile, 3 on tablet, 5 on desktop
+                final crossAxisCount =
+                    width < 560 ? 2 : (width < 900 ? 3 : 5);
+
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    // Fixed aspect ratio → every card is exactly the same size
+                    childAspectRatio: 0.82,
+                  ),
+                  itemCount: schools.length,
+                  itemBuilder: (context, index) {
+                    final school = schools[index];
+                    final schoolName =
+                        SchoolsAndDepartments.formatSchoolName(school);
                     final icon = _getSchoolIcon(school);
-                    
-                    return SizedBox(
-                      width: cardWidth,
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => SchoolBooksScreen(
-                                schoolId: school,
-                                schoolName: schoolName,
-                              ),
-                            ),
-                          );
-                        },
-                        borderRadius: BorderRadius.circular(16),
-                        child: Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                AppTheme.primaryNavy,
-                                AppTheme.primaryNavy.withOpacity(0.9),
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: AppTheme.accentGold.withOpacity(0.5),
-                              width: 2,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppTheme.primaryNavy.withOpacity(0.3),
-                                blurRadius: 15,
-                                offset: const Offset(0, 6),
-                              ),
-                            ],
+
+                    return InkWell(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => SchoolBooksScreen(
+                            schoolId: school,
+                            schoolName: schoolName,
                           ),
+                        ),
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [AppTheme.primaryNavy, Color(0xFF1E2A8A)],
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: AppTheme.accentGold.withValues(alpha: 0.45),
+                            width: 1.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.primaryNavy.withValues(alpha: 0.25),
+                              blurRadius: 12,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 14),
                           child: Column(
-                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
+                              // Fixed-size icon box
                               Container(
-                                padding: const EdgeInsets.all(16),
+                                width: 52,
+                                height: 52,
                                 decoration: BoxDecoration(
-                                  color: AppTheme.accentGold.withOpacity(0.2),
+                                  color: AppTheme.accentGold
+                                      .withValues(alpha: 0.18),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: AppTheme.accentGold.withOpacity(0.5),
-                                    width: 2,
+                                    color: AppTheme.accentGold
+                                        .withValues(alpha: 0.4),
+                                    width: 1.5,
                                   ),
                                 ),
-                                child: Icon(
-                                  icon,
-                                  color: AppTheme.accentGold,
-                                  size: 36,
-                                ),
+                                child: Icon(icon,
+                                    color: AppTheme.accentGold, size: 26),
                               ),
-                              const SizedBox(height: 14),
+                              const SizedBox(height: 10),
+                              // Name — capped at 3 lines so every card stays same height
                               Text(
                                 schoolName,
                                 textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  color: AppTheme.accentGold,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 0.3,
-                                  height: 1.3,
-                                ),
                                 maxLines: 3,
                                 overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.2,
+                                  height: 1.3,
+                                ),
                               ),
                               const SizedBox(height: 10),
+                              // Explore pill
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 5),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.accentGold.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(8),
+                                  color: AppTheme.accentGold
+                                      .withValues(alpha: 0.18),
+                                  borderRadius: BorderRadius.circular(20),
                                   border: Border.all(
-                                    color: AppTheme.accentGold.withOpacity(0.5),
-                                    width: 1,
+                                    color: AppTheme.accentGold
+                                        .withValues(alpha: 0.4),
                                   ),
                                 ),
-                                child: Row(
+                                child: const Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
                                       'Explore',
                                       style: TextStyle(
                                         color: AppTheme.accentGold,
-                                        fontSize: 12,
+                                        fontSize: 10,
                                         fontWeight: FontWeight.w800,
                                       ),
                                     ),
-                                    const SizedBox(width: 6),
-                                    Icon(
-                                      Icons.arrow_forward_rounded,
-                                      color: AppTheme.accentGold,
-                                      size: 16,
-                                    ),
+                                    SizedBox(width: 4),
+                                    Icon(Icons.arrow_forward_rounded,
+                                        color: AppTheme.accentGold, size: 12),
                                   ],
                                 ),
                               ),
@@ -944,7 +986,7 @@ class _StudentSearchScreenState extends State<StudentSearchScreen> {
                         ),
                       ),
                     );
-                  }).toList(),
+                  },
                 );
               },
             ),
@@ -953,7 +995,6 @@ class _StudentSearchScreenState extends State<StudentSearchScreen> {
       ),
     );
   }
-
   IconData _getSchoolIcon(String school) {
     if (school.contains('education')) return Icons.school_rounded;
     if (school.contains('arts')) return Icons.palette_rounded;
@@ -1076,4 +1117,36 @@ class _BookColumn {
   final String value;
 
   const _BookColumn(this.icon, this.label, this.value);
+}
+
+/// Thin wrapper that opens WelcomeScreen with a pre-selected tab index.
+/// Used by the bottom nav bar in StudentSearchScreen to jump to the right tab.
+class _WelcomeShortcut extends StatefulWidget {
+  final int tabIndex;
+  const _WelcomeShortcut({required this.tabIndex});
+
+  @override
+  State<_WelcomeShortcut> createState() => _WelcomeShortcutState();
+}
+
+class _WelcomeShortcutState extends State<_WelcomeShortcut> {
+  @override
+  void initState() {
+    super.initState();
+    // After the first frame, navigate to WelcomeScreen and open the chosen tab
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => WelcomeScreen(initialIndex: widget.tabIndex),
+        ),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Blank navy screen for the brief transition moment
+    return const Scaffold(backgroundColor: AppTheme.primaryNavy);
+  }
 }
