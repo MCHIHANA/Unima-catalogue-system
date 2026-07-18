@@ -232,15 +232,17 @@ class _HomeDashboard extends StatelessWidget {
                 horizontalPadding,
                 10,
               ),
-              child: Column(
-                children: [
-                  _HomeTopSection(isCompact: isSmall),
-                  SizedBox(height: isSmall ? 10 : 14),
-                  Expanded(
-                    child: GridView.count(
-                      crossAxisCount: 2,
-                      childAspectRatio: cardAspect,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.only(bottom: 24),
+                child: Column(
+                  children: [
+                    _HomeTopSection(isCompact: isSmall),
+                    SizedBox(height: isSmall ? 10 : 14),
+                    GridView.count(
+                      shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: constraints.maxWidth > 640 ? 3 : 2,
+                      childAspectRatio: constraints.maxWidth > 640 ? 1.55 : cardAspect,
                       mainAxisSpacing: isSmall ? 8 : 12,
                       crossAxisSpacing: isSmall ? 8 : 12,
                       children: [
@@ -294,23 +296,24 @@ class _HomeDashboard extends StatelessWidget {
                         ),
                       ],
                     ),
-                  ),
-                  _QuickAccessBar(
-                    compact: isSmall,
-                    onStudentSearch: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const StudentSearchScreen(),
+                    const SizedBox(height: 14),
+                    _QuickAccessBar(
+                      compact: isSmall,
+                      onStudentSearch: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const StudentSearchScreen(),
+                        ),
+                      ),
+                      onLibrarianLogin: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const LoginScreen(),
+                        ),
                       ),
                     ),
-                    onLibrarianLogin: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const LoginScreen(),
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],

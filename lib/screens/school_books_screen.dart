@@ -75,6 +75,7 @@ class _SchoolBooksScreenState extends State<SchoolBooksScreen> with SingleTicker
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final isMobile = size.width < 600;
+    final schoolProfile = SchoolsAndDepartments.getSchoolProfile(widget.schoolId);
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundLight,
@@ -136,7 +137,7 @@ class _SchoolBooksScreenState extends State<SchoolBooksScreen> with SingleTicker
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Browse Books & Resources',
+                          schoolProfile?.description ?? 'Browse Books & Resources',
                           style: TextStyle(
                             color: AppTheme.accentGold,
                             fontSize: isMobile ? 13 : 15,
@@ -215,6 +216,9 @@ class _SchoolBooksScreenState extends State<SchoolBooksScreen> with SingleTicker
                       ],
                     ),
                   ),
+                  const SizedBox(height: 24),
+
+                  _buildBranchAndNavigationSection(),
                   const SizedBox(height: 24),
 
                   // Tab bar for Law & Economics school
@@ -316,6 +320,167 @@ class _SchoolBooksScreenState extends State<SchoolBooksScreen> with SingleTicker
                 ],
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBranchAndNavigationSection() {
+    final schoolProfile = SchoolsAndDepartments.getSchoolProfile(widget.schoolId);
+    final branches = schoolProfile?.branches ?? [];
+    final otherSchools = SchoolsAndDepartments.getSchools()
+        .where((schoolId) => schoolId != widget.schoolId)
+        .toList();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppTheme.primaryNavy.withOpacity(0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryNavy.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.explore_rounded,
+                  color: AppTheme.primaryNavy,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Academic branches & quick navigation',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.textDark,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Browse specialisations in this school and jump to another school instantly.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textGrey,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Key branches',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.primaryNavy,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: branches
+                .map((branch) => Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.accentGold.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        branch,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.primaryNavy,
+                        ),
+                      ),
+                    ))
+                .toList(),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Explore other schools',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.primaryNavy,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: otherSchools.map((schoolId) {
+              final profile = SchoolsAndDepartments.getSchoolProfile(schoolId);
+              if (profile == null) {
+                return const SizedBox.shrink();
+              }
+              return InkWell(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SchoolBooksScreen(
+                      schoolId: profile.id,
+                      schoolName: profile.displayName,
+                    ),
+                  ),
+                ),
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppTheme.primaryNavy.withOpacity(0.1)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(profile.icon, size: 18, color: AppTheme.primaryNavy),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          profile.displayName,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.textDark,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
           ),
         ],
       ),
