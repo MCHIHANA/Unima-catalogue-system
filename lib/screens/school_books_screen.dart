@@ -24,6 +24,8 @@ class _SchoolBooksScreenState extends State<SchoolBooksScreen> with SingleTicker
   String _searchQuery = '';
   late TabController _tabController;
   bool _isLawEconomicsSchool = false;
+  // Currently selected branch for filtering (null = all books)
+  String? _selectedBranch;
 
   @override
   void initState() {
@@ -54,6 +56,14 @@ class _SchoolBooksScreenState extends State<SchoolBooksScreen> with SingleTicker
     if (_isLawEconomicsSchool && departmentFilter != null) {
       schoolBooks = schoolBooks.where((book) {
         return book.department.toLowerCase().contains(departmentFilter.toLowerCase());
+      }).toList();
+    }
+
+    // Filter by selected branch (matches book.branch field)
+    if (_selectedBranch != null) {
+      schoolBooks = schoolBooks.where((book) {
+        return book.branch != null &&
+            book.branch!.toLowerCase() == _selectedBranch!.toLowerCase();
       }).toList();
     }
     
@@ -303,13 +313,26 @@ class _SchoolBooksScreenState extends State<SchoolBooksScreen> with SingleTicker
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Found ${filteredBooks.length} ${filteredBooks.length == 1 ? 'book' : 'books'}',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textDark,
-                            ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Found ${filteredBooks.length} ${filteredBooks.length == 1 ? 'book' : 'books'}${_selectedBranch != null ? ' in "$_selectedBranch"' : ''}',
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.textDark,
+                                  ),
+                                ),
+                              ),
+                              if (_selectedBranch != null)
+                                TextButton.icon(
+                                  onPressed: () => setState(() => _selectedBranch = null),
+                                  icon: const Icon(Icons.close_rounded, size: 15),
+                                  label: const Text('Clear branch filter', style: TextStyle(fontSize: 12)),
+                                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+                                ),
+                            ],
                           ),
                           const SizedBox(height: 24),
                           ...filteredBooks.map((book) => _buildBookCard(book, isMobile)),
@@ -332,6 +355,11 @@ class _SchoolBooksScreenState extends State<SchoolBooksScreen> with SingleTicker
     final otherSchools = SchoolsAndDepartments.getSchools()
         .where((schoolId) => schoolId != widget.schoolId)
         .toList();
+
+    // Show only 5 branches; reveal the rest via "See more"
+    const int previewCount = 5;
+    final previewBranches = branches.take(previewCount).toList();
+    final hasMore = branches.length > previewCount;
 
     return Container(
       width: double.infinity,
@@ -369,9 +397,9 @@ class _SchoolBooksScreenState extends State<SchoolBooksScreen> with SingleTicker
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'Academic branches & quick navigation',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w900,
                         color: AppTheme.textDark,
@@ -393,40 +421,121 @@ class _SchoolBooksScreenState extends State<SchoolBooksScreen> with SingleTicker
             ],
           ),
           const SizedBox(height: 16),
-          Text(
-            'Key branches',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-              color: AppTheme.primaryNavy,
+
+          // ── Branch filter active banner ─────────────────────────────
+          if (_selectedBranch != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryNavy.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppTheme.primaryNavy.withOpacity(0.15)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.filter_alt_rounded, size: 16, color: AppTheme.primaryNavy),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Showing books for: $_selectedBranch',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.primaryNavy,
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => setState(() => _selectedBranch = null),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        'Clear',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Key branches',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.primaryNavy,
+                ),
+              ),
+              if (_selectedBranch != null)
+                TextButton.icon(
+                  onPressed: () => setState(() => _selectedBranch = null),
+                  icon: const Icon(Icons.clear_all_rounded, size: 15),
+                  label: const Text('Show all', style: TextStyle(fontSize: 12)),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppTheme.textGrey,
+                    padding: EdgeInsets.zero,
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 10),
+
+          // ── Branch chips (preview only) ─────────────────────────────
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: branches
-                .map((branch) => Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: AppTheme.accentGold.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        branch,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.primaryNavy,
+            children: [
+              ...previewBranches.map((branch) => _buildBranchChip(branch)),
+              // "See more" button
+              if (hasMore)
+                GestureDetector(
+                  onTap: () => _showAllBranchesSheet(branches),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryNavy.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: AppTheme.primaryNavy.withOpacity(0.2)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.add_rounded, size: 14, color: AppTheme.primaryNavy),
+                        const SizedBox(width: 4),
+                        Text(
+                          'See ${branches.length - previewCount} more',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.primaryNavy,
+                          ),
                         ),
-                      ),
-                    ))
-                .toList(),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
           ),
+
           const SizedBox(height: 16),
-          Text(
+          const Text(
             'Explore other schools',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w800,
               color: AppTheme.primaryNavy,
@@ -483,6 +592,192 @@ class _SchoolBooksScreenState extends State<SchoolBooksScreen> with SingleTicker
             }).toList(),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Single branch chip — highlighted when selected
+  Widget _buildBranchChip(String branch) {
+    final isSelected = _selectedBranch == branch;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedBranch = isSelected ? null : branch;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppTheme.primaryNavy
+              : AppTheme.accentGold.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(999),
+          border: isSelected
+              ? Border.all(color: AppTheme.primaryNavy)
+              : Border.all(color: Colors.transparent),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isSelected) ...[
+              const Icon(Icons.check_rounded, size: 13, color: Colors.white),
+              const SizedBox(width: 5),
+            ],
+            Text(
+              branch,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: isSelected ? Colors.white : AppTheme.primaryNavy,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Bottom sheet showing all branches
+  void _showAllBranchesSheet(List<String> branches) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.65,
+        minChildSize: 0.4,
+        maxChildSize: 0.92,
+        builder: (_, scrollCtrl) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              // Handle bar
+              Padding(
+                padding: const EdgeInsets.only(top: 12, bottom: 8),
+                child: Container(
+                  width: 44,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              // Header
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryNavy.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.account_tree_rounded, color: AppTheme.primaryNavy, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'All Academic Branches',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                              color: AppTheme.textDark,
+                            ),
+                          ),
+                          Text(
+                            '${branches.length} branches in this school',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textGrey,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      icon: const Icon(Icons.close_rounded, color: AppTheme.textGrey),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              // Branch list
+              Expanded(
+                child: ListView.separated(
+                  controller: scrollCtrl,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  itemCount: branches.length,
+                  separatorBuilder: (context, index) => const SizedBox(height: 8),
+                  itemBuilder: (_, i) {
+                    final branch = branches[i];
+                    final isSelected = _selectedBranch == branch;
+                    return InkWell(
+                      onTap: () {
+                        setState(() {
+                          _selectedBranch = isSelected ? null : branch;
+                        });
+                        Navigator.pop(ctx); // close sheet after selection
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppTheme.primaryNavy.withOpacity(0.06)
+                              : Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected
+                                ? AppTheme.primaryNavy.withOpacity(0.3)
+                                : Colors.grey.shade200,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: isSelected ? AppTheme.primaryNavy : AppTheme.accentGold,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Text(
+                                branch,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                                  color: isSelected ? AppTheme.primaryNavy : AppTheme.textDark,
+                                ),
+                              ),
+                            ),
+                            if (isSelected)
+                              const Icon(Icons.check_circle_rounded,
+                                  color: AppTheme.primaryNavy, size: 18),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

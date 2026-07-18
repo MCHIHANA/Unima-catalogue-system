@@ -27,6 +27,8 @@ class _AddBookScreenState extends State<AddBookScreen> {
   String _selectedStatus = 'PHYSICAL COPY AVAILABLE';
   String _selectedSchool = 'school-of-natural-and-applied-sciences';
   String _selectedDepartment = 'Department of Computer Science';
+  // Optional branch — user may leave this blank
+  String? _selectedBranch;
 
   bool _isLoading = false;
 
@@ -67,6 +69,11 @@ class _AddBookScreenState extends State<AddBookScreen> {
       _selectedDepartment = validDepartments.contains(b.department) 
           ? b.department 
           : validDepartments.first;
+      // Pre-populate branch if one was saved
+      final validBranches = SchoolsAndDepartments.getSchoolBranches(_selectedSchool);
+      _selectedBranch = (b.branch != null && validBranches.contains(b.branch))
+          ? b.branch
+          : null;
     }
   }
 
@@ -96,6 +103,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
           status:      _selectedStatus,
           school:      _selectedSchool,
           department:  _selectedDepartment,
+          branch:      _selectedBranch,
         );
 
         final service = BookService();
@@ -274,6 +282,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
                           setState(() {
                             _selectedSchool = v!;
                             _selectedDepartment = SchoolsAndDepartments.getDepartments(v).first;
+                            _selectedBranch = null; // reset branch when school changes
                           });
                         }, formatLabel: true)),
                         const SizedBox(width: 20),
@@ -285,11 +294,17 @@ class _AddBookScreenState extends State<AddBookScreen> {
                       setState(() {
                         _selectedSchool = v!;
                         _selectedDepartment = SchoolsAndDepartments.getDepartments(v).first;
+                        _selectedBranch = null; // reset branch when school changes
                       });
                     }, formatLabel: true),
                     const SizedBox(height: 20),
                     _dropdown('Department *', SchoolsAndDepartments.getDepartments(_selectedSchool), _selectedDepartment, (v) => setState(() => _selectedDepartment = v!)),
                   ],
+
+                  const SizedBox(height: 20),
+
+                  // ── Optional Branch Selector ────────────────────────────
+                  _branchSelector(),
 
                   const SizedBox(height: 36),
 
@@ -435,6 +450,123 @@ class _AddBookScreenState extends State<AddBookScreen> {
           }).toList(),
           validator: (v) => v == null ? 'Please select an option' : null,
         ),
+      ],
+    );
+  }
+
+  /// Optional branch picker — shows chips for the selected school's branches
+  Widget _branchSelector() {
+    final branches = SchoolsAndDepartments.getSchoolBranches(_selectedSchool);
+    if (branches.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text(
+              'BRANCH',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                color: AppTheme.textGrey,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text(
+                'Optional',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.green,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Select the academic branch this book belongs to (leave blank if not applicable).',
+          style: TextStyle(
+            fontSize: 11,
+            color: AppTheme.textGrey.withOpacity(0.7),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: branches.map((branch) {
+            final isSelected = _selectedBranch == branch;
+            return GestureDetector(
+              onTap: () => setState(() {
+                _selectedBranch = isSelected ? null : branch;
+              }),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppTheme.primaryNavy
+                      : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: isSelected
+                        ? AppTheme.primaryNavy
+                        : Colors.grey.shade300,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isSelected) ...[
+                      const Icon(Icons.check_rounded, size: 13, color: Colors.white),
+                      const SizedBox(width: 5),
+                    ],
+                    Text(
+                      branch,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: isSelected ? Colors.white : AppTheme.textDark,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        if (_selectedBranch != null) ...[
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: () => setState(() => _selectedBranch = null),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.close_rounded, size: 13, color: Colors.red),
+                const SizedBox(width: 4),
+                const Text(
+                  'Clear branch',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.red,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }

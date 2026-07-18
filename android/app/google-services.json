@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "148666875246",
+    "project_id": "unima-library-system",
+    "storage_bucket": "unima-library-system.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:148666875246:android:c7bf1cce9f1965735f557f",
+        "android_client_info": {
+          "package_name": "mw.edu.unima.unima_library_catalogue"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBpfe4NIB5pAAZdoaJzPRgwN7wgKBkFK7I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

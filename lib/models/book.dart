@@ -9,6 +9,8 @@ class Book {
   final String status;
   final String school;
   final String department;
+  // Optional branch — links the book to a specific academic branch
+  final String? branch;
 
   Book({
     this.id,
@@ -21,6 +23,7 @@ class Book {
     required this.status,
     required this.school,
     required this.department,
+    this.branch,
   });
 
   Map<String, dynamic> toMap() {
@@ -34,6 +37,7 @@ class Book {
       'status': status,
       'school': school,
       'department': department,
+      if (branch != null && branch!.isNotEmpty) 'branch': branch,
     };
   }
 
@@ -49,6 +53,7 @@ class Book {
       status: map['status'] ?? '',
       school: map['school'] ?? 'school-of-education',
       department: map['department'] ?? '',
+      branch: map['branch'] as String?,
     );
   }
 
@@ -63,6 +68,7 @@ class Book {
     String? status,
     String? school,
     String? department,
+    String? branch,
   }) {
     return Book(
       id: id ?? this.id,
@@ -75,6 +81,7 @@ class Book {
       status: status ?? this.status,
       school: school ?? this.school,
       department: department ?? this.department,
+      branch: branch ?? this.branch,
     );
   }
 }

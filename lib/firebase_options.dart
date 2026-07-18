@@ -10,12 +10,13 @@ class DefaultFirebaseOptions {
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
+        return android;
       case TargetPlatform.iOS:
       case TargetPlatform.macOS:
       case TargetPlatform.windows:
       case TargetPlatform.linux:
       case TargetPlatform.fuchsia:
-        return web; // As per the user's config provided, using the web config for all platforms for now as it's testing on Chrome Web
+        return web;
     }
   }
 
@@ -25,6 +26,14 @@ class DefaultFirebaseOptions {
     messagingSenderId: '148666875246',
     projectId: 'unima-library-system',
     authDomain: 'unima-library-system.firebaseapp.com',
+    storageBucket: 'unima-library-system.firebasestorage.app',
+  );
+
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyBpfe4NIB5pAAZdoaJzPRgwN7wgKBkFK7I',
+    appId: '1:148666875246:android:c7bf1cce9f1965735f557f',
+    messagingSenderId: '148666875246',
+    projectId: 'unima-library-system',
     storageBucket: 'unima-library-system.firebasestorage.app',
   );
 }
