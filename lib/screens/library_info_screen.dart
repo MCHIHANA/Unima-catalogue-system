@@ -739,7 +739,7 @@ class _PageMeta {
             _FallbackSection(
               title: 'Contact',
               body:
-                  'For enquiries, catalogue access, research support or reserve materials, contact the library service desk.\n\nUniversity of Malawi, P.O. Box 280, Zomba, Malawi.',
+                  'For enquiries, catalogue access, research support or reserve materials, contact the library service desk.\n\nUniversity of Malawi, P.O. Box 280, Zomba, Malawi.\nTel: +265 887 261 446',
             ),
           ],
         );
