@@ -6,6 +6,7 @@ import '../screens/manage_books_screen.dart';
 import '../screens/analytics_screen.dart';
 import '../screens/audit_logs_screen.dart';
 import '../screens/add_book_screen.dart';
+import '../screens/content_management_screen.dart';
 import '../models/user_profile.dart';
 
 class MainLayout extends StatefulWidget {
@@ -128,6 +129,9 @@ class _MainLayoutState extends State<MainLayout> {
           }),
           _buildNavLink('Manage Books', widget.currentRoute == 'ManageBooks', () {
             Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ManageBooksScreen()));
+          }),
+          _buildNavLink('Content', widget.currentRoute == 'ContentManagement', () {
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ContentManagementScreen()));
           }),
           // Audit Logs - Only for super users
           if (isSuperUserFlag)
@@ -302,6 +306,13 @@ class _MainLayoutState extends State<MainLayout> {
             selected: widget.currentRoute == 'ManageBooks',
             selectedColor: AppTheme.primaryNavy,
             onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ManageBooksScreen())),
+          ),
+          ListTile(
+            leading: const Icon(Icons.edit_note_rounded),
+            title: const Text('Content Management'),
+            selected: widget.currentRoute == 'ContentManagement',
+            selectedColor: AppTheme.primaryNavy,
+            onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ContentManagementScreen())),
           ),
           // Audit Logs - Only for super users
           if (isSuperUserFlag)

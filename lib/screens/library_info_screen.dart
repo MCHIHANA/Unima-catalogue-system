@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../theme/app_theme.dart';
+import '../models/content_item.dart';
+import '../services/content_service.dart';
 
 enum LibraryInfoPage {
   about,
@@ -18,11 +21,11 @@ class LibraryInfoScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final details = _LibraryPageDetails.forPage(page);
+    final meta = _PageMeta.forPage(page);
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundLight,
-      appBar: AppBar(title: Text(details.title), centerTitle: false),
+      appBar: AppBar(title: Text(meta.title), centerTitle: false),
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
@@ -31,14 +34,9 @@ class LibraryInfoScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _InfoHero(details: details),
+                  _InfoHero(meta: meta),
                   const SizedBox(height: 22),
-                  ...details.sections.map(
-                    (section) => Padding(
-                      padding: const EdgeInsets.only(bottom: 14),
-                      child: _InfoSection(section: section),
-                    ),
-                  ),
+                  _PageBody(page: page, meta: meta),
                 ],
               ),
             ),
@@ -49,10 +47,12 @@ class LibraryInfoScreen extends StatelessWidget {
   }
 }
 
-class _InfoHero extends StatelessWidget {
-  final _LibraryPageDetails details;
+// ─── Hero banner ────────────────────────────────────────────────────────────
 
-  const _InfoHero({required this.details});
+class _InfoHero extends StatelessWidget {
+  final _PageMeta meta;
+
+  const _InfoHero({required this.meta});
 
   @override
   Widget build(BuildContext context) {
@@ -80,11 +80,11 @@ class _InfoHero extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(18),
             ),
-            child: Icon(details.icon, color: AppTheme.accentGold, size: 28),
+            child: Icon(meta.icon, color: AppTheme.accentGold, size: 28),
           ),
           const SizedBox(height: 20),
           Text(
-            details.title,
+            meta.title,
             style: const TextStyle(
               color: Colors.white,
               fontSize: 28,
@@ -94,7 +94,7 @@ class _InfoHero extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            details.subtitle,
+            meta.subtitle,
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.78),
               fontSize: 15,
@@ -108,10 +108,454 @@ class _InfoHero extends StatelessWidget {
   }
 }
 
-class _InfoSection extends StatelessWidget {
-  final _InfoSectionData section;
+// ─── Dynamic page body ──────────────────────────────────────────────────────
 
-  const _InfoSection({required this.section});
+class _PageBody extends StatelessWidget {
+  final LibraryInfoPage page;
+  final _PageMeta meta;
+
+  const _PageBody({required this.page, required this.meta});
+
+  @override
+  Widget build(BuildContext context) {
+    switch (page) {
+      case LibraryInfoPage.news:
+        return _LiveListSection(section: 'news', meta: meta);
+      case LibraryInfoPage.events:
+        return _LiveEventsSection(meta: meta);
+      case LibraryInfoPage.about:
+        return _LivePageSection(section: 'about', meta: meta);
+      case LibraryInfoPage.services:
+        return _LivePageSection(section: 'services', meta: meta);
+      case LibraryInfoPage.help:
+        return _LivePageSection(section: 'help', meta: meta);
+      case LibraryInfoPage.locations:
+        return _LocationSection(meta: meta);
+      case LibraryInfoPage.settings:
+        return _LivePageSection(section: 'settings', meta: meta);
+    }
+  }
+}
+
+// ─── News list (stream) ─────────────────────────────────────────────────────
+
+class _LiveListSection extends StatelessWidget {
+  final String section;
+  final _PageMeta meta;
+
+  const _LiveListSection({required this.section, required this.meta});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<ContentItem>>(
+      stream: ContentService().getSection(section),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(40),
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+        final items = snapshot.data ?? [];
+        if (items.isEmpty) {
+          return Column(
+            children: meta.fallbackSections
+                .map((s) => Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: _InfoCard(title: s.title, body: s.body),
+                    ))
+                .toList(),
+          );
+        }
+        return Column(
+          children: items
+              .map((item) => Padding(
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: _InfoCard(title: item.title, body: item.body),
+                  ))
+              .toList(),
+        );
+      },
+    );
+  }
+}
+
+// ─── Events list (with dates) ───────────────────────────────────────────────
+
+class _LiveEventsSection extends StatelessWidget {
+  final _PageMeta meta;
+
+  const _LiveEventsSection({required this.meta});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<ContentItem>>(
+      stream: ContentService().getSection('events'),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(40),
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+        final items = snapshot.data ?? [];
+        if (items.isEmpty) {
+          return Column(
+            children: meta.fallbackSections
+                .map((s) => Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: _InfoCard(title: s.title, body: s.body),
+                    ))
+                .toList(),
+          );
+        }
+        return Column(
+          children: items
+              .map((item) => Padding(
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: _EventCard(item: item),
+                  ))
+              .toList(),
+        );
+      },
+    );
+  }
+}
+
+// ─── Event card with date badge ──────────────────────────────────────────────
+
+class _EventCard extends StatelessWidget {
+  final ContentItem item;
+
+  const _EventCard({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final dateFormatter = DateFormat('d MMM yyyy');
+    final hasDate = item.eventDate != null;
+    final isUpcoming =
+        hasDate && item.eventDate!.isAfter(DateTime.now());
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isUpcoming
+              ? AppTheme.accentGold.withValues(alpha: 0.4)
+              : AppTheme.primaryNavy.withValues(alpha: 0.06),
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: AppTheme.cardShadow,
+            blurRadius: 16,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Date band
+          if (hasDate)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              decoration: BoxDecoration(
+                color: isUpcoming
+                    ? AppTheme.accentGold.withValues(alpha: 0.1)
+                    : Colors.grey.withValues(alpha: 0.06),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.calendar_today_rounded,
+                    size: 15,
+                    color: isUpcoming ? AppTheme.accentGold : AppTheme.textGrey,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    dateFormatter.format(item.eventDate!),
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: isUpcoming
+                          ? AppTheme.accentGold
+                          : AppTheme.textGrey,
+                    ),
+                  ),
+                  if (item.eventEndDate != null) ...[
+                    Text(
+                      ' — ${dateFormatter.format(item.eventEndDate!)}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: isUpcoming
+                            ? AppTheme.accentGold
+                            : AppTheme.textGrey,
+                      ),
+                    ),
+                  ],
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: isUpcoming
+                          ? AppTheme.accentGold.withValues(alpha: 0.15)
+                          : Colors.grey.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      isUpcoming ? 'UPCOMING' : 'PAST',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        color: isUpcoming
+                            ? AppTheme.accentGold
+                            : AppTheme.textGrey,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      height: 40,
+                      width: 40,
+                      decoration: BoxDecoration(
+                        color: AppTheme.accentGold.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(
+                        Icons.event_rounded,
+                        color: AppTheme.primaryNavy,
+                        size: 21,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        item.title,
+                        style: const TextStyle(
+                          color: AppTheme.textDark,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                          height: 1.25,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  item.body,
+                  style: const TextStyle(
+                    color: AppTheme.textGrey,
+                    fontSize: 14,
+                    height: 1.55,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Page-based sections (about, services, help, settings) ──────────────────
+
+class _LivePageSection extends StatelessWidget {
+  final String section;
+  final _PageMeta meta;
+
+  const _LivePageSection({required this.section, required this.meta});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<ContentPage?>(
+      stream: ContentService().getPage(section),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(40),
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+        final page = snapshot.data;
+        if (page == null || page.sections.isEmpty) {
+          // Fallback to static content
+          return Column(
+            children: meta.fallbackSections
+                .map((s) => Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: _InfoCard(title: s.title, body: s.body),
+                    ))
+                .toList(),
+          );
+        }
+        return Column(
+          children: page.sections
+              .map((s) => Padding(
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: _InfoCard(title: s.title, body: s.body),
+                  ))
+              .toList(),
+        );
+      },
+    );
+  }
+}
+
+// ─── Location section (static + editable via page) ──────────────────────────
+
+class _LocationSection extends StatelessWidget {
+  final _PageMeta meta;
+
+  const _LocationSection({required this.meta});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<ContentPage?>(
+      stream: ContentService().getPage('location'),
+      builder: (context, snapshot) {
+        final page = snapshot.data;
+
+        Widget liveContent;
+        if (page != null && page.sections.isNotEmpty) {
+          liveContent = Column(
+            children: page.sections
+                .map((s) => Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: _InfoCard(title: s.title, body: s.body),
+                    ))
+                .toList(),
+          );
+        } else {
+          liveContent = Column(
+            children: meta.fallbackSections
+                .map((s) => Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: _InfoCard(title: s.title, body: s.body),
+                    ))
+                .toList(),
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Static map-style address card
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              margin: const EdgeInsets.only(bottom: 14),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [AppTheme.primaryNavy, Color(0xFF1E2A8A)],
+                ),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    height: 50,
+                    width: 50,
+                    decoration: BoxDecoration(
+                      color: AppTheme.accentGold.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(
+                      Icons.location_on_rounded,
+                      color: AppTheme.accentGold,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'University of Malawi',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Zomba, Malawi',
+                          style: TextStyle(
+                            color: AppTheme.accentGold,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Chancellor College Campus',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(
+                    Icons.map_rounded,
+                    color: AppTheme.accentGold,
+                    size: 28,
+                  ),
+                ],
+              ),
+            ),
+            liveContent,
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ─── Reusable info card ──────────────────────────────────────────────────────
+
+class _InfoCard extends StatelessWidget {
+  final String title;
+  final String body;
+
+  const _InfoCard({
+    required this.title,
+    required this.body,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -143,16 +587,12 @@ class _InfoSection extends StatelessWidget {
                   color: AppTheme.accentGold.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(
-                  section.icon,
-                  color: AppTheme.primaryNavy,
-                  size: 21,
-                ),
+                child: const Icon(Icons.info_outline_rounded, color: AppTheme.primaryNavy, size: 21),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  section.title,
+                  title,
                   style: const TextStyle(
                     color: AppTheme.textDark,
                     fontSize: 17,
@@ -165,7 +605,7 @@ class _InfoSection extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           Text(
-            section.body,
+            body,
             style: const TextStyle(
               color: AppTheme.textGrey,
               fontSize: 14,
@@ -179,102 +619,83 @@ class _InfoSection extends StatelessWidget {
   }
 }
 
-class _LibraryPageDetails {
+// ─── Static metadata + fallback content ─────────────────────────────────────
+
+class _PageMeta {
   final String title;
   final String subtitle;
   final IconData icon;
-  final List<_InfoSectionData> sections;
+  final List<_FallbackSection> fallbackSections;
 
-  const _LibraryPageDetails({
+  const _PageMeta({
     required this.title,
     required this.subtitle,
     required this.icon,
-    required this.sections,
+    required this.fallbackSections,
   });
 
-  static _LibraryPageDetails forPage(LibraryInfoPage page) {
+  static _PageMeta forPage(LibraryInfoPage page) {
     switch (page) {
       case LibraryInfoPage.about:
-        return const _LibraryPageDetails(
+        return const _PageMeta(
           title: 'About the Library',
           subtitle:
               'The University of Malawi Library supports learning, teaching, research, consultancy and knowledge preservation.',
           icon: Icons.info_rounded,
-          sections: [
-            _InfoSectionData(
-              icon: Icons.account_balance_rounded,
+          fallbackSections: [
+            _FallbackSection(
               title: 'About Library',
               body:
                   'The University of Malawi Library supports the core and non-core functions of the university. The library is an integral part of the University mission, providing access to information resources, conservation and preservation of knowledge.',
             ),
-            _InfoSectionData(
-              icon: Icons.visibility_rounded,
+            _FallbackSection(
               title: 'Vision',
               body:
                   'To be a library with a global perspective, providing an excellent academic environment for learning, teaching, research and collaboration.',
             ),
-            _InfoSectionData(
-              icon: Icons.flag_rounded,
+            _FallbackSection(
               title: 'Mission',
               body:
                   'To provide quality information services and resources that support teaching, research, consultancy and innovation across the University community.',
             ),
-            _InfoSectionData(
-              icon: Icons.history_edu_rounded,
-              title: 'History',
-              body:
-                  'The library continues to serve as a trusted academic resource hub for students, researchers, staff and the wider community, supporting access to scholarship and lifelong learning.',
-            ),
           ],
         );
       case LibraryInfoPage.services:
-        return const _LibraryPageDetails(
+        return const _PageMeta(
           title: 'Library Services',
-          subtitle:
-              'Support for discovery, access, research skills and productive study.',
+          subtitle: 'Support for discovery, access, research skills and productive study.',
           icon: Icons.design_services_rounded,
-          sections: [
-            _InfoSectionData(
-              icon: Icons.library_books_rounded,
+          fallbackSections: [
+            _FallbackSection(
               title: 'Books, Journals and Digital Resources',
               body:
                   'The library offers access to books, journals and digital resources that provide essential information for study and research.',
             ),
-            _InfoSectionData(
-              icon: Icons.support_agent_rounded,
+            _FallbackSection(
               title: 'Research Assistance',
               body:
                   'Students, researchers and staff can receive guidance on finding scholarly materials, using catalogue tools and improving research workflows.',
             ),
-            _InfoSectionData(
-              icon: Icons.groups_rounded,
+            _FallbackSection(
               title: 'Training Workshops',
               body:
                   'Information literacy sessions help users develop practical skills for searching, evaluating and using academic information responsibly.',
             ),
-            _InfoSectionData(
-              icon: Icons.chair_rounded,
-              title: 'Study Spaces',
-              body:
-                  'The library provides a comfortable academic environment for individual reading, collaboration and group study.',
-            ),
           ],
         );
       case LibraryInfoPage.news:
-        return const _LibraryPageDetails(
+        return const _PageMeta(
           title: 'Library News',
           subtitle:
               'Announcements, resource updates and notices from the University Library.',
           icon: Icons.newspaper_rounded,
-          sections: [
-            _InfoSectionData(
-              icon: Icons.campaign_rounded,
+          fallbackSections: [
+            _FallbackSection(
               title: 'Announcements',
               body:
                   'Important library notices, service changes, new collections and digital resource updates appear here.',
             ),
-            _InfoSectionData(
-              icon: Icons.new_releases_rounded,
+            _FallbackSection(
               title: 'New Resources',
               body:
                   'Recently added books, journals and e-resources are highlighted to help users discover current academic materials.',
@@ -282,19 +703,17 @@ class _LibraryPageDetails {
           ],
         );
       case LibraryInfoPage.events:
-        return const _LibraryPageDetails(
+        return const _PageMeta(
           title: 'Library Events',
           subtitle: 'Workshops, orientations and academic support sessions.',
           icon: Icons.event_rounded,
-          sections: [
-            _InfoSectionData(
-              icon: Icons.school_rounded,
+          fallbackSections: [
+            _FallbackSection(
               title: 'Orientations',
               body:
                   'Library orientation sessions introduce students to catalogue search, borrowing guidance, digital resources and research support.',
             ),
-            _InfoSectionData(
-              icon: Icons.edit_calendar_rounded,
+            _FallbackSection(
               title: 'Workshops',
               body:
                   'Training events include information literacy, referencing, database searching and research discovery sessions.',
@@ -302,53 +721,45 @@ class _LibraryPageDetails {
           ],
         );
       case LibraryInfoPage.locations:
-        return const _LibraryPageDetails(
+        return const _PageMeta(
           title: 'Contact and Locations',
-          subtitle:
-              'Find library spaces, contact points and opening information.',
+          subtitle: 'Find library spaces, contact points and opening information.',
           icon: Icons.location_on_rounded,
-          sections: [
-            _InfoSectionData(
-              icon: Icons.place_rounded,
-              title: 'Library Locations',
+          fallbackSections: [
+            _FallbackSection(
+              title: 'Main Library — Zomba Campus',
               body:
-                  'Use this section to identify University Library service points, collection areas and reading spaces.',
+                  'University of Malawi, Zomba, Malawi. The main library is located at the Chancellor College campus and serves as the central hub for all library services.',
             ),
-            _InfoSectionData(
-              icon: Icons.schedule_rounded,
+            _FallbackSection(
               title: 'Opening Hours',
               body:
-                  'Opening hours and service availability should be confirmed with current library notices during holidays, examination periods and special events.',
+                  'Monday – Friday: 08:00 – 20:00\nSaturday: 08:00 – 16:00\nSunday: 10:00 – 14:00\n\nOpening hours may vary during holidays, examinations and special events.',
             ),
-            _InfoSectionData(
-              icon: Icons.contact_mail_rounded,
+            _FallbackSection(
               title: 'Contact',
               body:
-                  'Contact the library for help with catalogue access, research support, reserve materials and general information services.',
+                  'For enquiries, catalogue access, research support or reserve materials, contact the library service desk.\n\nUniversity of Malawi, P.O. Box 280, Zomba, Malawi.',
             ),
           ],
         );
       case LibraryInfoPage.help:
-        return const _LibraryPageDetails(
+        return const _PageMeta(
           title: 'Help and FAQs',
-          subtitle:
-              'Guidance for catalogue use, library conduct and support questions.',
+          subtitle: 'Guidance for catalogue use, library conduct and support questions.',
           icon: Icons.help_rounded,
-          sections: [
-            _InfoSectionData(
-              icon: Icons.search_rounded,
+          fallbackSections: [
+            _FallbackSection(
               title: 'Using the Catalogue',
               body:
                   'Search by title, author, course, category or ISBN. Use school filters to narrow the collection to a specific academic area.',
             ),
-            _InfoSectionData(
-              icon: Icons.rule_rounded,
+            _FallbackSection(
               title: 'Library Rules',
               body:
                   'Users are expected to respect library spaces, handle materials responsibly and follow borrowing, reserve and study-area guidance.',
             ),
-            _InfoSectionData(
-              icon: Icons.question_answer_rounded,
+            _FallbackSection(
               title: 'FAQs',
               body:
                   'Common questions about finding resources, accessing e-books and identifying availability status can be answered through library support.',
@@ -356,19 +767,17 @@ class _LibraryPageDetails {
           ],
         );
       case LibraryInfoPage.settings:
-        return const _LibraryPageDetails(
+        return const _PageMeta(
           title: 'Settings',
           subtitle: 'Application preferences and user support settings.',
           icon: Icons.settings_rounded,
-          sections: [
-            _InfoSectionData(
-              icon: Icons.palette_rounded,
+          fallbackSections: [
+            _FallbackSection(
               title: 'Appearance',
               body:
                   'The app uses a modern Material 3 interface based on the University of Malawi colour palette for clarity and consistency.',
             ),
-            _InfoSectionData(
-              icon: Icons.accessibility_new_rounded,
+            _FallbackSection(
               title: 'Accessibility',
               body:
                   'The interface supports readable contrast, large tap targets and platform text scaling where supported by the device.',
@@ -379,14 +788,9 @@ class _LibraryPageDetails {
   }
 }
 
-class _InfoSectionData {
-  final IconData icon;
+class _FallbackSection {
   final String title;
   final String body;
 
-  const _InfoSectionData({
-    required this.icon,
-    required this.title,
-    required this.body,
-  });
+  const _FallbackSection({required this.title, required this.body});
 }
