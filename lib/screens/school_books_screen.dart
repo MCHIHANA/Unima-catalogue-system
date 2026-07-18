@@ -21,6 +21,8 @@ class SchoolBooksScreen extends StatefulWidget {
 class _SchoolBooksScreenState extends State<SchoolBooksScreen> with SingleTickerProviderStateMixin {
   final BookService _bookService = BookService();
   final TextEditingController _searchController = TextEditingController();
+  // Cache the stream so rebuilds from setState (branch filter, search) don't reset it
+  late final Stream<List<Book>> _booksStream;
   String _searchQuery = '';
   late TabController _tabController;
   bool _isLawEconomicsSchool = false;
@@ -30,6 +32,7 @@ class _SchoolBooksScreenState extends State<SchoolBooksScreen> with SingleTicker
   @override
   void initState() {
     super.initState();
+    _booksStream = _bookService.getBooks(); // cached once — never recreated
     _isLawEconomicsSchool = widget.schoolId == 'school-of-law-economics-and-governance';
     _tabController = TabController(
       length: _isLawEconomicsSchool ? 2 : 1,
@@ -277,7 +280,7 @@ class _SchoolBooksScreenState extends State<SchoolBooksScreen> with SingleTicker
 
                   // Books List
                   StreamBuilder<List<Book>>(
-                    stream: _bookService.getBooks(),
+                    stream: _booksStream,
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const Center(
